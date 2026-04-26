@@ -16,6 +16,7 @@ devvm_shell_files() {
 		scripts/format-check.sh \
 		scripts/format.sh \
 		scripts/lint.sh \
+		scripts/prepare-release.sh \
 		scripts/release-github.sh \
 		scripts/test.sh \
 		tests/shellcheck.sh \

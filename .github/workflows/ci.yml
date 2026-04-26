@@ -18,22 +18,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Enable pnpm
-        run: corepack enable pnpm
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: corepack pnpm install --frozen-lockfile
-
       - name: Install system lint tools
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck shfmt
 
       - name: Run checks
-        run: corepack pnpm run check
+        run: bash scripts/check.sh

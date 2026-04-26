@@ -31,8 +31,8 @@ Install common host dependencies with Homebrew:
 brew install lima ansible
 ```
 
-`shellcheck`, `shfmt`, and Node/pnpm are only needed for contributing to this repo, not
-for daily VM usage.
+`shellcheck` and `shfmt` are only needed for contributing to this repo, not for daily VM
+usage.
 
 ## Install
 
@@ -183,31 +183,35 @@ endpoint and prints a commit message.
 Install repo tooling:
 
 ```bash
-corepack enable pnpm
-corepack pnpm install --frozen-lockfile
 brew install shellcheck shfmt
 ```
 
 Run all local checks:
 
 ```bash
-corepack pnpm run check
+bash scripts/check.sh
 ```
 
-Format supported files:
+The check suite is shell-native:
+
+- `scripts/format-check.sh` verifies `shfmt` output and trailing whitespace.
+- `scripts/lint.sh` runs ShellCheck.
+- `scripts/test.sh` runs Bash syntax checks and the smoke test.
+
+Format shell files:
 
 ```bash
-corepack pnpm run format
+bash scripts/format.sh
 ```
 
-Release notes are managed with Changesets:
+Releases are tag-driven. Update `CHANGELOG.md`, commit the release notes, then push an
+annotated tag:
 
 ```bash
-corepack pnpm run changeset
+git add CHANGELOG.md
+git commit -m "chore: release v0.1.0"
+bash scripts/prepare-release.sh 0.1.0 --push
 ```
 
-Pull requests run CI automatically. Merges to `main` create or update a Changesets
-release PR; merging that release PR creates a GitHub release.
-
-Repo tooling uses pnpm with a frozen lockfile, exact versions, delayed package release
-age, trust downgrade protection, and blocked dependency build scripts by default.
+Pull requests run CI automatically. Pushing a `v*` tag runs the release workflow and
+creates a GitHub release from the matching `CHANGELOG.md` section.

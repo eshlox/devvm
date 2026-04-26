@@ -1,6 +1,4 @@
 .DS_Store
-node_modules/
-.pnpm-store/
 *.swp
 *.tmp
 *.log
