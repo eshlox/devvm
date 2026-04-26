@@ -2,13 +2,11 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
+    tags:
+      - "v*"
 
 permissions:
   contents: write
-  pull-requests: write
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -23,53 +21,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: stable
-
-      - name: Install npm dependencies
-        run: npm ci
-
       - name: Install system lint tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y shellcheck
-
-      - name: Install Go lint tools
-        run: bash scripts/install-ci-tools.sh
+          sudo apt-get install -y shellcheck shfmt
 
       - name: Run checks
-        run: npm run check
-
-      - name: Detect pending changesets
-        id: pending-changesets
-        run: |
-          if find .changeset -maxdepth 1 -name '*.md' ! -name README.md | grep -q .; then
-            echo "has_changesets=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_changesets=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Create release pull request
-        uses: changesets/action@v1
-        if: steps.pending-changesets.outputs.has_changesets == 'true'
-        with:
-          version: npm run version-packages
-          title: "chore: release"
-          commit: "chore: release"
-          createGithubReleases: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/check.sh
 
       - name: Create GitHub release
-        if: steps.pending-changesets.outputs.has_changesets == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run release:github
+        run: bash scripts/release-github.sh

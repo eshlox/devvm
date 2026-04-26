@@ -9,11 +9,15 @@
     tools={{ ai_tools | quote }}
     for tool in $tools; do
       case "$tool" in
-        claude)
-          npm install -g @anthropic-ai/claude-code
+        -*)
+          echo "AI_TOOLS entries must not start with '-': $tool" >&2
+          exit 1
           ;;
-        codex)
-          npm install -g @openai/codex
+        claude|claude@*)
+          npm install -g -- "@anthropic-ai/claude-code${tool#claude}"
+          ;;
+        codex|codex@*)
+          npm install -g -- "@openai/codex${tool#codex}"
           ;;
         "")
           ;;
@@ -27,7 +31,13 @@
     packages={{ ai_extra_npm_packages | quote }}
     for package in $packages; do
       [ -n "$package" ] || continue
-      npm install -g "$package"
+      case "$package" in
+        -*)
+          echo "AI_EXTRA_NPM_PACKAGES entries must not start with '-': $package" >&2
+          exit 1
+          ;;
+      esac
+      npm install -g -- "$package"
     done
   args:
     executable: /bin/bash

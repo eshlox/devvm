@@ -1,5 +1,7 @@
 # DevVM
 
+Keep your friends close, your supply chain in a VM.
+
 DevVM creates disposable Fedora development VMs on macOS using Lima, Ansible, and
 chezmoi. The opinionated workflow is:
 
@@ -26,8 +28,11 @@ in the project defaults.
 Install common host dependencies with Homebrew:
 
 ```bash
-brew install lima ansible shellcheck shfmt
+brew install lima ansible
 ```
+
+`shellcheck` and `shfmt` are only needed for contributing to this repo, not for daily VM
+usage.
 
 ## Install
 
@@ -150,7 +155,7 @@ devvm ai create
 Configure models in `~/.config/devvm/config.env`:
 
 ```bash
-AI_LLAMA_MODELS="commit.gguf|https://example.com/commit.gguf"
+AI_LLAMA_MODELS="commit.gguf|https://example.com/commit.gguf|sha256:<hex>"
 AI_COMMIT_MODEL="commit.gguf"
 ```
 
@@ -163,7 +168,7 @@ http://host.lima.internal:18080/v1
 Development VMs also install configured AI CLIs:
 
 ```bash
-AI_TOOLS="claude codex"
+AI_TOOLS="claude@1.2.3 codex@1.2.3"
 AI_EXTRA_NPM_PACKAGES=""
 ```
 
@@ -178,28 +183,35 @@ endpoint and prints a commit message.
 Install repo tooling:
 
 ```bash
-npm ci
-go install mvdan.cc/sh/v3/cmd/shfmt@latest
-go install github.com/rhysd/actionlint/cmd/actionlint@latest
+brew install shellcheck shfmt
 ```
 
 Run all local checks:
 
 ```bash
-npm run check
+bash scripts/check.sh
 ```
 
-Format supported files:
+The check suite is shell-native:
+
+- `scripts/format-check.sh` verifies `shfmt` output and trailing whitespace.
+- `scripts/lint.sh` runs ShellCheck.
+- `scripts/test.sh` runs Bash syntax checks and the smoke test.
+
+Format shell files:
 
 ```bash
-npm run format
+bash scripts/format.sh
 ```
 
-Release notes are managed with Changesets:
+Releases are tag-driven. Update `CHANGELOG.md`, commit the release notes, then push an
+annotated tag:
 
 ```bash
-npm run changeset
+git add CHANGELOG.md
+git commit -m "chore: release v0.1.0"
+bash scripts/prepare-release.sh 0.1.0 --push
 ```
 
-Pull requests run CI automatically. Merges to `main` create or update a Changesets
-release PR; merging that release PR creates a GitHub release.
+Pull requests run CI automatically. Pushing a `v*` tag runs the release workflow and
+creates a GitHub release from the matching `CHANGELOG.md` section.

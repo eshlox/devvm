@@ -5,6 +5,7 @@ devvm_home:
   devvm_user) }}"
 devvm_name: "devvm"
 devvm_role: "dev"
+devvm_upgrade_packages: "0"
 code_dir: "/code"
 
 dev_packages_present:
@@ -41,6 +42,7 @@ ai_extra_npm_packages: ""
 ai_llama_cpp_repo: "https://github.com/ggml-org/llama.cpp.git"
 ai_llama_cpp_ref: "master"
 ai_llama_models: ""
+ai_allow_insecure_model_urls: "0"
 ai_llama_models_dir: "/models"
 ai_llama_server_port: "8080"
 ai_llama_ctx_size: "4096"

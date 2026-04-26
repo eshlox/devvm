@@ -4,8 +4,26 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="$(node -p "require('./package.json').version")"
-TAG="v$VERSION"
+devvm_release_die() {
+	echo "$*" >&2
+	exit 1
+}
+
+command -v gh >/dev/null 2>&1 || devvm_release_die "gh is required to create GitHub releases"
+
+TAG="${1:-${GITHUB_REF_NAME:-}}"
+if [ -z "$TAG" ]; then
+	TAG="$(git describe --tags --exact-match 2>/dev/null || true)"
+fi
+
+case "$TAG" in
+v[0-9]*) ;;
+*)
+	devvm_release_die "release tag must look like v0.1.0; got: ${TAG:-<empty>}"
+	;;
+esac
+
+VERSION="${TAG#v}"
 NOTES_FILE="$(mktemp)"
 trap 'rm -f "$NOTES_FILE"' EXIT
 
@@ -43,4 +61,4 @@ awk -v version="$VERSION" '
 gh release create "$TAG" \
 	--title "$TAG" \
 	--notes-file "$NOTES_FILE" \
-	--target "${GITHUB_SHA:-HEAD}"
+	--verify-tag

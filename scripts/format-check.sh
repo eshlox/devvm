@@ -9,5 +9,9 @@ source "$ROOT/scripts/files.sh"
 
 mapfile -t shell_files < <(devvm_shell_files)
 
-prettier . --check
 shfmt -d "${shell_files[@]}"
+
+if git grep -nI '[[:blank:]]$' -- .; then
+	echo "Trailing whitespace found." >&2
+	exit 1
+fi

@@ -29,6 +29,14 @@
     dest: "{{ devvm_home }}/.local/src/llama.cpp"
     version: "{{ ai_llama_cpp_ref }}"
     update: true
+  register: llama_cpp_checkout
+  when: devvm_role == "ai"
+
+- name: Check llama-server binary
+  become: false
+  ansible.builtin.stat:
+    path: "{{ devvm_home }}/.local/src/llama.cpp/build/bin/llama-server"
+  register: llama_server_binary
   when: devvm_role == "ai"
 
 - name: Build llama-server
@@ -40,7 +48,10 @@
   args:
     executable: /bin/bash
     chdir: "{{ devvm_home }}/.local/src/llama.cpp"
-  when: devvm_role == "ai"
+  register: llama_server_build
+  when:
+    - devvm_role == "ai"
+    - llama_cpp_checkout.changed or not llama_server_binary.stat.exists
 
 - name: Ensure model directory exists
   become: true
@@ -64,9 +75,13 @@
         ""|\#*) continue ;;
       esac
 
+      checksum=""
+      extra=""
+
       if [ "${entry#*|}" != "$entry" ]; then
-        name="${entry%%|*}"
-        url="${entry#*|}"
+        IFS='|' read -r name url checksum extra <<ENTRY
+    $entry
+    ENTRY
       else
         url="$entry"
         clean_url="${url%%\?*}"
@@ -81,14 +96,82 @@
         echo "invalid AI_LLAMA_MODELS entry: $entry" >&2
         exit 1
       }
+      [ -z "$extra" ] || {
+        echo "invalid AI_LLAMA_MODELS entry: $entry" >&2
+        exit 1
+      }
 
-      curl -fL --continue-at - -o "{{ ai_llama_models_dir }}/$name" "$url"
+      case "$url" in
+        https://*) ;;
+        *)
+          if [ {{ ai_allow_insecure_model_urls | quote }} != "1" ]; then
+            echo "AI model URLs must use https unless AI_ALLOW_INSECURE_MODEL_URLS=1: $url" >&2
+            exit 1
+          fi
+          ;;
+      esac
+
+      case "$checksum" in
+        "")
+          ;;
+        sha256:*)
+          expected="${checksum#sha256:}"
+          case "$expected" in
+            *[!0-9a-fA-F]*|"")
+              echo "invalid sha256 checksum in AI_LLAMA_MODELS entry: $entry" >&2
+              exit 1
+              ;;
+          esac
+          ;;
+        *)
+          echo "unsupported checksum in AI_LLAMA_MODELS entry: $entry" >&2
+          exit 1
+          ;;
+      esac
+
+      target="{{ ai_llama_models_dir }}/$name"
+      if [ ! -f "$target" ]; then
+        curl -fL --continue-at - -o "$target" "$url"
+        echo "downloaded:$name"
+      fi
+
+      if [ -n "$checksum" ]; then
+        printf '%s  %s\n' "$expected" "$target" | sha256sum -c -
+      fi
     done
   args:
     executable: /bin/bash
+  register: llama_model_downloads
+  changed_when: "'downloaded:' in llama_model_downloads.stdout"
   when:
     - devvm_role == "ai"
     - ai_llama_models | length > 0
+
+- name: Validate AI commit model is configured
+  ansible.builtin.fail:
+    msg:
+      "AI_COMMIT_MODEL is required for the AI VM; set it directly or make it the first
+      AI_LLAMA_MODELS entry."
+  when:
+    - devvm_role == "ai"
+    - ai_commit_model | length == 0
+
+- name: Validate AI commit model exists
+  become: false
+  ansible.builtin.stat:
+    path: "{{ ai_llama_models_dir }}/{{ ai_commit_model }}"
+  register: ai_commit_model_file
+  when:
+    - devvm_role == "ai"
+    - ai_commit_model | length > 0
+
+- name: Fail when AI commit model is missing
+  ansible.builtin.fail:
+    msg: "AI commit model not found: {{ ai_llama_models_dir }}/{{ ai_commit_model }}"
+  when:
+    - devvm_role == "ai"
+    - ai_commit_model | length > 0
+    - not ai_commit_model_file.stat.exists
 
 - name: Install llama-server systemd service
   become: true
@@ -105,19 +188,31 @@
       Type=simple
       User={{ devvm_user }}
       WorkingDirectory={{ devvm_home }}/.local/src/llama.cpp
-      ExecStart={{ devvm_home }}/.local/src/llama.cpp/build/bin/llama-server --host 0.0.0.0 --port {{ ai_llama_server_port }} --models-dir {{ ai_llama_models_dir }} -c {{ ai_llama_ctx_size }} {{ ai_llama_extra_args }}
+      ExecStart={{ devvm_home }}/.local/src/llama.cpp/build/bin/llama-server --host 127.0.0.1 --port {{ ai_llama_server_port }} -m {{ ai_llama_models_dir }}/{{ ai_commit_model }} -c {{ ai_llama_ctx_size }} {{ ai_llama_extra_args }}
       Restart=on-failure
       RestartSec=5
 
       [Install]
       WantedBy=multi-user.target
+  register: llama_server_unit
   when: devvm_role == "ai"
 
-- name: Enable and restart llama-server
+- name: Enable llama-server
   become: true
   ansible.builtin.systemd:
     name: devvm-llama.service
     enabled: true
-    state: restarted
+    state: started
     daemon_reload: true
   when: devvm_role == "ai"
+
+- name: Restart llama-server after changes
+  become: true
+  ansible.builtin.systemd:
+    name: devvm-llama.service
+    state: restarted
+    daemon_reload: true
+  when:
+    - devvm_role == "ai"
+    - (llama_server_unit.changed | default(false)) or (llama_server_build.changed |
+      default(false)) or (llama_model_downloads.changed | default(false))
