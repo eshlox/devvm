@@ -20,6 +20,12 @@ Fedora package management uses `ansible.builtin.dnf5`. Base packages are kept mi
 Git, SSH/GPG support, Python, archive utilities, `jq`, `curl`, and runtime helpers
 required by DevVM itself.
 
+OS package upgrades are opt-in:
+
+```bash
+DEVVM_UPGRADE_PACKAGES="1"
+```
+
 Node is conditional. It is installed through `fnm` only when `NODE_VERSION` is set or
 when configured AI npm packages require it. DevVM writes only the minimal PATH/API
 environment blocks needed for those configured tools.

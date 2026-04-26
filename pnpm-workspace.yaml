@@ -1,0 +1,8 @@
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 10080
+strictDepBuilds: true
+blockExoticSubdeps: true
+
+packages:
+  - "."

@@ -1,5 +1,7 @@
 # DevVM
 
+Keep your friends close, your supply chain in a VM.
+
 DevVM creates disposable Fedora development VMs on macOS using Lima, Ansible, and
 chezmoi. The opinionated workflow is:
 
@@ -26,8 +28,11 @@ in the project defaults.
 Install common host dependencies with Homebrew:
 
 ```bash
-brew install lima ansible shellcheck shfmt
+brew install lima ansible
 ```
+
+`shellcheck`, `shfmt`, and Node/pnpm are only needed for contributing to this repo, not
+for daily VM usage.
 
 ## Install
 
@@ -150,7 +155,7 @@ devvm ai create
 Configure models in `~/.config/devvm/config.env`:
 
 ```bash
-AI_LLAMA_MODELS="commit.gguf|https://example.com/commit.gguf"
+AI_LLAMA_MODELS="commit.gguf|https://example.com/commit.gguf|sha256:<hex>"
 AI_COMMIT_MODEL="commit.gguf"
 ```
 
@@ -163,7 +168,7 @@ http://host.lima.internal:18080/v1
 Development VMs also install configured AI CLIs:
 
 ```bash
-AI_TOOLS="claude codex"
+AI_TOOLS="claude@1.2.3 codex@1.2.3"
 AI_EXTRA_NPM_PACKAGES=""
 ```
 
@@ -178,28 +183,31 @@ endpoint and prints a commit message.
 Install repo tooling:
 
 ```bash
-npm ci
-go install mvdan.cc/sh/v3/cmd/shfmt@latest
-go install github.com/rhysd/actionlint/cmd/actionlint@latest
+corepack enable pnpm
+corepack pnpm install --frozen-lockfile
+brew install shellcheck shfmt
 ```
 
 Run all local checks:
 
 ```bash
-npm run check
+corepack pnpm run check
 ```
 
 Format supported files:
 
 ```bash
-npm run format
+corepack pnpm run format
 ```
 
 Release notes are managed with Changesets:
 
 ```bash
-npm run changeset
+corepack pnpm run changeset
 ```
 
 Pull requests run CI automatically. Merges to `main` create or update a Changesets
 release PR; merging that release PR creates a GitHub release.
+
+Repo tooling uses pnpm with a frozen lockfile, exact versions, delayed package release
+age, trust downgrade protection, and blocked dependency build scripts by default.

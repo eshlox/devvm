@@ -20,15 +20,18 @@ models, and starts `llama-server`.
 Configure models in `~/.config/devvm/config.env`:
 
 ```bash
-AI_LLAMA_MODELS="commit.gguf|https://example.com/commit.gguf"
+AI_LLAMA_MODELS="commit.gguf|https://example.com/commit.gguf|sha256:<hex>"
 AI_COMMIT_MODEL="commit.gguf"
 ```
 
 Model entries are space-separated and use:
 
 ```text
-filename.gguf|https://download-url
+filename.gguf|https://download-url|sha256:<hex>
 ```
+
+The checksum is optional but strongly recommended. Model URLs must use `https` unless
+`AI_ALLOW_INSECURE_MODEL_URLS=1` is set.
 
 The server listens inside the AI VM on port `8080`, forwarded to macOS on `18080`. Other
 DevVMs reach it at:
@@ -43,7 +46,7 @@ Development VMs install configured AI CLIs automatically when `AI_TOOLS` or
 `AI_EXTRA_NPM_PACKAGES` is set:
 
 ```bash
-AI_TOOLS="claude codex"
+AI_TOOLS="claude@1.2.3 codex@1.2.3"
 AI_EXTRA_NPM_PACKAGES=""
 ```
 
@@ -52,10 +55,12 @@ through `fnm` for that VM.
 
 Supported built-ins:
 
-- `claude` installs `@anthropic-ai/claude-code`.
-- `codex` installs `@openai/codex`.
+- `claude` or `claude@version` installs `@anthropic-ai/claude-code`.
+- `codex` or `codex@version` installs `@openai/codex`.
 
-Extra npm packages can be listed in `AI_EXTRA_NPM_PACKAGES`.
+Extra npm packages can be listed in `AI_EXTRA_NPM_PACKAGES`. Pin versions where
+possible. DevVM rejects package tokens that start with `-` to avoid npm option
+injection.
 
 ## Commit Messages
 

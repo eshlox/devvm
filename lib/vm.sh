@@ -147,6 +147,7 @@ devvm_create() {
 
 	devvm_require_command limactl
 	devvm_load_vm "$name"
+	devvm_lima_validate_template
 
 	if devvm_lima_instance_exists "$VM_NAME"; then
 		devvm_log "Lima instance already exists: $VM_NAME"

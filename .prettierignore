@@ -1,6 +1,7 @@
 .git
 .lima
 node_modules
+.pnpm-store
 package-lock.json
 CHANGELOG.md
 *.log

@@ -20,6 +20,14 @@ case "${1:-}" in
   list)
     exit 0
     ;;
+  template)
+    if [ "${2:-}" = "yq" ]; then
+      printf '1\n'
+      exit 0
+    fi
+    printf 'unexpected limactl template command: %s\n' "$*" >&2
+    exit 1
+    ;;
   create)
     printf 'limactl create' >>"$DEVVM_TEST_LOG"
     shift

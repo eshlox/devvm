@@ -73,7 +73,7 @@ devvm_port_forwards_json() {
 }
 
 devvm_validate_mount_spec() {
-	local spec host guest access extra
+	local spec host guest access extra canonical_host
 	spec="$1"
 	IFS=: read -r host guest access extra <<EOF
 $spec
@@ -98,15 +98,51 @@ EOF
 	*) devvm_die "mount access must be ro or rw in spec '$spec'" ;;
 	esac
 
-	case "$host" in
-	/ | "$HOME" | "$HOME/" | "$HOME/." | "$HOME/.." | "$HOME"/..)
-		devvm_die "refusing to mount broad host path: $host"
-		;;
-	esac
+	canonical_host="$(devvm_canonical_mount_host "$host")"
+	devvm_reject_sensitive_mount_host "$canonical_host"
 
 	case "$guest" in
 	/ | /code | /code/* | "$DEVVM_GUEST_HOME" | "$DEVVM_GUEST_HOME"/* | /home | /home/* | /root | /etc | /usr | /var | /bin | /sbin | /lib | /lib64)
 		devvm_die "refusing to mount over protected guest path: $guest"
+		;;
+	esac
+}
+
+devvm_canonical_mount_host() {
+	local path
+	path="$1"
+
+	case "$path" in
+	*"/../"* | ../* | */.. | ..)
+		devvm_die "mount host path must not contain '..': $path"
+		;;
+	esac
+
+	devvm_ensure_dir "$path"
+	(cd -P "$path" && pwd) || devvm_die "could not canonicalize mount host path: $path"
+}
+
+devvm_reject_sensitive_mount_host() {
+	local path home_real relative
+	path="$1"
+	home_real="$(cd -P "$HOME" && pwd)"
+
+	case "$path" in
+	/ | "$home_real")
+		devvm_die "refusing to mount broad host path: $path"
+		;;
+	esac
+
+	case "$path" in
+	"$home_real"/*)
+		relative="${path#"$home_real"/}"
+		case "$relative" in
+		.ssh | .ssh/* | .aws | .aws/* | .gnupg | .gnupg/* | .config | .config/* | .docker | .docker/* | .kube | .kube/* | Library | Library/* | Documents | Documents/* | Desktop | Desktop/* | Downloads | Downloads/*)
+			if [ "${DEVVM_ALLOW_SENSITIVE_MOUNTS:-0}" != "1" ]; then
+				devvm_die "refusing to mount sensitive host path: $path; set DEVVM_ALLOW_SENSITIVE_MOUNTS=1 to override"
+			fi
+			;;
+		esac
 		;;
 	esac
 }
@@ -124,7 +160,7 @@ devvm_mounts_block() {
 		IFS=: read -r host guest access <<EOF
 $spec
 EOF
-		devvm_ensure_dir "$host"
+		host="$(devvm_canonical_mount_host "$host")"
 		writable="true"
 		if [ "${access:-rw}" = "ro" ]; then
 			writable="false"
@@ -149,7 +185,7 @@ devvm_mounts_json() {
 		IFS=: read -r host guest access <<EOF
 $spec
 EOF
-		devvm_ensure_dir "$host"
+		host="$(devvm_canonical_mount_host "$host")"
 		writable="true"
 		if [ "${access:-rw}" = "ro" ]; then
 			writable="false"
@@ -194,6 +230,11 @@ devvm_lima_create_instance() {
 	"${cmd[@]}"
 }
 
+devvm_lima_validate_template() {
+	limactl template yq "$LIMA_TEMPLATE" '.images | length' >/dev/null 2>&1 ||
+		devvm_die "Lima template is unavailable or invalid: $LIMA_TEMPLATE"
+}
+
 devvm_render_lima_template() {
 	local template output line mounts_block ports_block
 	template="$1"
@@ -207,10 +248,12 @@ devvm_render_lima_template() {
 	while IFS= read -r line || [ -n "$line" ]; do
 		case "$line" in
 		*'{{ MOUNTS_BLOCK }}'*)
+			[ "$line" = "{{ MOUNTS_BLOCK }}" ] || devvm_die "MOUNTS_BLOCK placeholder must occupy its own line in $template"
 			printf '%s\n' "$mounts_block" >>"$output"
 			continue
 			;;
 		*'{{ PORT_FORWARDS_BLOCK }}'*)
+			[ "$line" = "{{ PORT_FORWARDS_BLOCK }}" ] || devvm_die "PORT_FORWARDS_BLOCK placeholder must occupy its own line in $template"
 			printf '%s\n' "$ports_block" >>"$output"
 			continue
 			;;

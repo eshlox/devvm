@@ -67,7 +67,7 @@
   become: false
   ansible.builtin.shell: |
     set -euo pipefail
-    chezmoi git pull -- --ff-only || true
+    chezmoi git pull -- --ff-only
   args:
     executable: /bin/bash
   when:

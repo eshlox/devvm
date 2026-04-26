@@ -27,26 +27,21 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
+          cache: pnpm
 
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: stable
+      - name: Enable pnpm
+        run: corepack enable pnpm
 
-      - name: Install npm dependencies
-        run: npm ci
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
 
       - name: Install system lint tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y shellcheck
-
-      - name: Install Go lint tools
-        run: bash scripts/install-ci-tools.sh
+          sudo apt-get install -y shellcheck shfmt
 
       - name: Run checks
-        run: npm run check
+        run: corepack pnpm run check
 
       - name: Detect pending changesets
         id: pending-changesets
@@ -61,7 +56,7 @@ jobs:
         uses: changesets/action@v1
         if: steps.pending-changesets.outputs.has_changesets == 'true'
         with:
-          version: npm run version-packages
+          version: corepack pnpm run version-packages
           title: "chore: release"
           commit: "chore: release"
           createGithubReleases: false
@@ -69,7 +64,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub release
-        if: steps.pending-changesets.outputs.has_changesets == 'false'
+        if: >-
+          steps.pending-changesets.outputs.has_changesets == 'false' &&
+          (github.event_name == 'workflow_dispatch' ||
+          startsWith(github.event.head_commit.message, 'chore: release'))
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run release:github
+        run: corepack pnpm run release:github

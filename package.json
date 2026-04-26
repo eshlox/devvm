@@ -4,6 +4,7 @@
   "private": true,
   "description": "Disposable Fedora development VMs on macOS using Lima, Ansible, and chezmoi.",
   "license": "MIT",
+  "packageManager": "pnpm@10.33.2",
   "engines": {
     "node": ">=20"
   },
@@ -12,7 +13,7 @@
     "format:check": "bash scripts/format-check.sh",
     "lint": "bash scripts/lint.sh",
     "test": "bash scripts/test.sh",
-    "check": "npm run format:check && npm run lint && npm run test",
+    "check": "bash scripts/check.sh",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release:github": "bash scripts/release-github.sh"

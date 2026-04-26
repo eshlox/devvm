@@ -12,9 +12,9 @@ devvm_shell_files() {
 		lib/util.sh \
 		lib/vm.sh \
 		scripts/files.sh \
+		scripts/check.sh \
 		scripts/format-check.sh \
 		scripts/format.sh \
-		scripts/install-ci-tools.sh \
 		scripts/lint.sh \
 		scripts/release-github.sh \
 		scripts/test.sh \
