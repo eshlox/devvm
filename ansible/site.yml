@@ -1,0 +1,15 @@
+---
+- name: Configure DevVM guest
+  hosts: devvms
+  gather_facts: true
+  become: false
+
+  roles:
+    - base
+    - tools
+    - llama_cpp
+    - chezmoi
+    - node
+    - git
+    - ai
+    - cleanup

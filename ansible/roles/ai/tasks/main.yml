@@ -1,0 +1,107 @@
+---
+- name: Install configured AI CLIs
+  become: false
+  ansible.builtin.shell: |
+    set -euo pipefail
+    export PATH="$HOME/.local/share/fnm:$HOME/.local/bin:$PATH"
+    eval "$(fnm env --use-on-cd --shell bash)"
+
+    tools={{ ai_tools | quote }}
+    for tool in $tools; do
+      case "$tool" in
+        claude)
+          npm install -g @anthropic-ai/claude-code
+          ;;
+        codex)
+          npm install -g @openai/codex
+          ;;
+        "")
+          ;;
+        *)
+          echo "unsupported AI tool in AI_TOOLS: $tool" >&2
+          exit 1
+          ;;
+      esac
+    done
+
+    packages={{ ai_extra_npm_packages | quote }}
+    for package in $packages; do
+      [ -n "$package" ] || continue
+      npm install -g "$package"
+    done
+  args:
+    executable: /bin/bash
+  when:
+    - devvm_role != "ai"
+    - (ai_tools | length > 0) or (ai_extra_npm_packages | length > 0)
+
+- name: Install AI commit helper
+  become: false
+  ansible.builtin.copy:
+    dest: "{{ devvm_home }}/.local/bin/devvm-ai-commit"
+    mode: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      BASE_URL="${DEVVM_AI_BASE_URL:-{{ ai_llama_base_url }}}"
+      MODEL="${DEVVM_AI_COMMIT_MODEL:-{{ ai_commit_model }}}"
+
+      if [ -z "$MODEL" ]; then
+        echo "Set AI_COMMIT_MODEL in DevVM config or DEVVM_AI_COMMIT_MODEL in the shell." >&2
+        exit 1
+      fi
+
+      if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "devvm-ai-commit must run inside a git repository." >&2
+        exit 1
+      fi
+
+      DIFF="$(git diff --cached --no-ext-diff)"
+      if [ -z "$DIFF" ]; then
+        echo "No staged changes. Stage files before generating a commit message." >&2
+        exit 1
+      fi
+
+      payload="$(mktemp)"
+      trap 'rm -f "$payload"' EXIT
+
+      jq -n \
+        --arg model "$MODEL" \
+        --arg diff "$DIFF" \
+        '{
+          model: $model,
+          temperature: 0.2,
+          max_tokens: 220,
+          messages: [
+            {
+              role: "system",
+              content: "Generate one concise git commit message. Prefer Conventional Commits when obvious. Return only the commit message, no markdown."
+            },
+            {
+              role: "user",
+              content: ("Create a commit message for this staged diff:\n\n" + $diff)
+            }
+          ]
+        }' >"$payload"
+
+      curl -fsS "$BASE_URL/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d @"$payload" |
+        jq -r '.choices[0].message.content // .choices[0].text // empty'
+  when: devvm_role != "ai"
+
+- name: Configure AI endpoint shell environment
+  become: false
+  ansible.builtin.blockinfile:
+    path: "{{ devvm_home }}/{{ item }}"
+    create: true
+    marker: "# {mark} DEVVM AI"
+    mode: "0644"
+    block: |
+      export DEVVM_AI_BASE_URL="{{ ai_llama_base_url }}"
+      export DEVVM_AI_COMMIT_MODEL="{{ ai_commit_model }}"
+  when: devvm_role != "ai"
+  loop:
+    - .profile
+    - .bashrc

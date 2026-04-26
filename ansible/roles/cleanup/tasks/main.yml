@@ -1,0 +1,6 @@
+---
+- name: Clean dnf metadata
+  become: true
+  ansible.builtin.command: dnf5 clean all
+  changed_when: false
+  when: ansible_facts.os_family == "RedHat"

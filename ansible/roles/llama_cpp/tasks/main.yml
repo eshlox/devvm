@@ -1,0 +1,123 @@
+---
+- name: Install llama.cpp build dependencies
+  become: true
+  ansible.builtin.dnf5:
+    name:
+      - git
+      - cmake
+      - gcc
+      - gcc-c++
+      - make
+      - curl
+    state: present
+  when:
+    - devvm_role == "ai"
+    - ansible_facts.os_family == "RedHat"
+
+- name: Ensure llama.cpp source parent exists
+  become: false
+  ansible.builtin.file:
+    path: "{{ devvm_home }}/.local/src"
+    state: directory
+    mode: "0755"
+  when: devvm_role == "ai"
+
+- name: Clone llama.cpp
+  become: false
+  ansible.builtin.git:
+    repo: "{{ ai_llama_cpp_repo }}"
+    dest: "{{ devvm_home }}/.local/src/llama.cpp"
+    version: "{{ ai_llama_cpp_ref }}"
+    update: true
+  when: devvm_role == "ai"
+
+- name: Build llama-server
+  become: false
+  ansible.builtin.shell: |
+    set -euo pipefail
+    cmake -B build
+    cmake --build build --config Release -t llama-server -j"$(nproc)"
+  args:
+    executable: /bin/bash
+    chdir: "{{ devvm_home }}/.local/src/llama.cpp"
+  when: devvm_role == "ai"
+
+- name: Ensure model directory exists
+  become: true
+  ansible.builtin.file:
+    path: "{{ ai_llama_models_dir }}"
+    state: directory
+    owner: "{{ devvm_user }}"
+    group: "{{ devvm_user }}"
+    mode: "0755"
+  when: devvm_role == "ai"
+
+- name: Download configured GGUF models
+  become: false
+  ansible.builtin.shell: |
+    set -euo pipefail
+    models={{ ai_llama_models | quote }}
+    mkdir -p {{ ai_llama_models_dir | quote }}
+
+    for entry in $models; do
+      case "$entry" in
+        ""|\#*) continue ;;
+      esac
+
+      if [ "${entry#*|}" != "$entry" ]; then
+        name="${entry%%|*}"
+        url="${entry#*|}"
+      else
+        url="$entry"
+        clean_url="${url%%\?*}"
+        name="$(basename "$clean_url")"
+      fi
+
+      [ -n "$name" ] || {
+        echo "invalid AI_LLAMA_MODELS entry: $entry" >&2
+        exit 1
+      }
+      [ -n "$url" ] || {
+        echo "invalid AI_LLAMA_MODELS entry: $entry" >&2
+        exit 1
+      }
+
+      curl -fL --continue-at - -o "{{ ai_llama_models_dir }}/$name" "$url"
+    done
+  args:
+    executable: /bin/bash
+  when:
+    - devvm_role == "ai"
+    - ai_llama_models | length > 0
+
+- name: Install llama-server systemd service
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/devvm-llama.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=DevVM llama.cpp OpenAI-compatible server
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      User={{ devvm_user }}
+      WorkingDirectory={{ devvm_home }}/.local/src/llama.cpp
+      ExecStart={{ devvm_home }}/.local/src/llama.cpp/build/bin/llama-server --host 0.0.0.0 --port {{ ai_llama_server_port }} --models-dir {{ ai_llama_models_dir }} -c {{ ai_llama_ctx_size }} {{ ai_llama_extra_args }}
+      Restart=on-failure
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+  when: devvm_role == "ai"
+
+- name: Enable and restart llama-server
+  become: true
+  ansible.builtin.systemd:
+    name: devvm-llama.service
+    enabled: true
+    state: restarted
+    daemon_reload: true
+  when: devvm_role == "ai"

@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC1091
+set -euo pipefail
+
+devvm_resolve_script_dir() {
+	local source dir
+	source="${BASH_SOURCE[0]}"
+	while [ -L "$source" ]; do
+		dir="$(cd -P "$(dirname "$source")" && pwd)"
+		source="$(readlink "$source")"
+		case "$source" in
+		/*) ;;
+		*) source="$dir/$source" ;;
+		esac
+	done
+	cd -P "$(dirname "$source")" && pwd
+}
+
+if [ -z "${DEVVM_CORE:-}" ]; then
+	DEVVM_CORE="$(cd "$(devvm_resolve_script_dir)/.." && pwd)"
+fi
+export DEVVM_CORE
+
+# shellcheck source=../lib/util.sh
+source "$DEVVM_CORE/lib/util.sh"
+# shellcheck source=../lib/config.sh
+source "$DEVVM_CORE/lib/config.sh"
+# shellcheck source=../lib/lima.sh
+source "$DEVVM_CORE/lib/lima.sh"
+# shellcheck source=../lib/ansible.sh
+source "$DEVVM_CORE/lib/ansible.sh"
+# shellcheck source=../lib/vm.sh
+source "$DEVVM_CORE/lib/vm.sh"
+# shellcheck source=../lib/ai.sh
+source "$DEVVM_CORE/lib/ai.sh"
+
+devvm_help() {
+	cat <<'HELP'
+Usage:
+  devvm init
+  devvm new <name> [--ports "3000 5173"] [--mount host:guest[:ro|rw]]
+  devvm create <name>
+  devvm enter <name>
+  devvm ssh <name> [command...]
+  devvm start <name>
+  devvm stop <name|all>
+  devvm delete <name> [--yes]
+  devvm update <name>
+  devvm update-all
+  devvm rebuild <name> [--yes]
+  devvm rebuild-all [--yes]
+  devvm key <name>
+  devvm status
+  devvm doctor
+  devvm ai create|update|enter|key
+  devvm self-update
+
+Shortcut:
+  devvm <name>   enters an existing VM
+HELP
+}
+
+devvm_main() {
+	local cmd subcmd
+	cmd="${1:-help}"
+	if [ "$#" -gt 0 ]; then
+		shift
+	fi
+
+	case "$cmd" in
+	help | -h | --help)
+		devvm_help
+		;;
+	init)
+		devvm_init "$@"
+		;;
+	new)
+		devvm_new "$@"
+		;;
+	create)
+		devvm_create "$@"
+		;;
+	enter)
+		devvm_enter "$@"
+		;;
+	ssh)
+		devvm_ssh "$@"
+		;;
+	start)
+		devvm_start "$@"
+		;;
+	stop)
+		devvm_stop "$@"
+		;;
+	delete | rm)
+		devvm_delete "$@"
+		;;
+	update)
+		devvm_update "$@"
+		;;
+	update-all)
+		devvm_update_all "$@"
+		;;
+	rebuild)
+		devvm_rebuild "$@"
+		;;
+	rebuild-all)
+		devvm_rebuild_all "$@"
+		;;
+	key)
+		devvm_key "$@"
+		;;
+	status | list)
+		devvm_status "$@"
+		;;
+	doctor)
+		devvm_doctor "$@"
+		;;
+	ai)
+		subcmd="${1:-help}"
+		if [ "$#" -gt 0 ]; then
+			shift
+		fi
+		case "$subcmd" in
+		create) devvm_ai_create "$@" ;;
+		update) devvm_ai_update "$@" ;;
+		enter) devvm_ai_enter "$@" ;;
+		key) devvm_ai_key "$@" ;;
+		help | -h | --help) devvm_ai_help ;;
+		*) devvm_die "unknown ai command: $subcmd" ;;
+		esac
+		;;
+	self-update)
+		devvm_self_update "$@"
+		;;
+	*)
+		if devvm_vm_exists "$cmd"; then
+			devvm_enter "$cmd" "$@"
+		else
+			devvm_help
+			devvm_die "unknown command or project: $cmd"
+		fi
+		;;
+	esac
+}
+
+devvm_main "$@"

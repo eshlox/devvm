@@ -1,0 +1,9 @@
+.git
+.lima
+node_modules
+package-lock.json
+CHANGELOG.md
+*.log
+*.tmp
+~/.local/share/devvm-state
+~/.config/devvm
