@@ -1,7 +1,7 @@
 # Explicit Shares
 
 DevVM does not mount macOS project folders. Repositories should be cloned inside the VM
-under `/code`.
+under `~/code`.
 
 If you need file exchange, configure narrow explicit shares:
 
@@ -21,9 +21,9 @@ Mount specs use:
 host_path:guest_path[:ro|rw]
 ```
 
-DevVM rejects broad host paths such as `$HOME` and protected guest paths such as
-`/code`, `/home`, and `/etc`. A share still weakens isolation for that mounted path; use
-it only for deliberate file transfer.
+DevVM rejects broad host paths such as `$HOME` and protected guest paths such as the
+configured code directory, `/home`, and `/etc`. A share still weakens isolation for that
+mounted path; use it only for deliberate file transfer.
 
 Host share paths are canonicalized, so symlinks and `..` segments cannot bypass the
 checks. DevVM also rejects sensitive host paths by default, including `.ssh`, `.aws`,

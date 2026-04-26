@@ -15,7 +15,7 @@ Runtime state is generated under `~/.local/share/devvm-state`. User config lives
 upgrades.
 
 The primary boundary is VM-first isolation. Source code is cloned manually inside the VM
-under `/code`; there is no project folder on macOS by default. Explicit shares are
+under `~/code`; there is no project folder on macOS by default. Explicit shares are
 available only for narrow file exchange paths.
 
 Project VMs can call the AI VM through the AI VM's forwarded llama.cpp endpoint. This

@@ -1,12 +1,11 @@
 ---
-devvm_user: "{{ ansible_user | default(ansible_user_id) }}"
-devvm_home:
-  "{{ ansible_env.HOME | default(ansible_facts.user_dir) | default('/home/' ~
-  devvm_user) }}"
+devvm_user: "{{ ansible_user | default(ansible_facts.user_id) }}"
+devvm_home: >-
+  {{ (ansible_facts.env | default({})).HOME | default(ansible_facts.user_dir) | default('/home/' ~ devvm_user) }}
 devvm_name: "devvm"
 devvm_role: "dev"
 devvm_upgrade_packages: "0"
-code_dir: "/code"
+code_dir: "{{ devvm_home }}/code"
 
 dev_packages_present:
   - git

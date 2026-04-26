@@ -102,7 +102,7 @@ EOF
 	devvm_reject_sensitive_mount_host "$canonical_host"
 
 	case "$guest" in
-	/ | /code | /code/* | "$DEVVM_GUEST_HOME" | "$DEVVM_GUEST_HOME"/* | /home | /home/* | /root | /etc | /usr | /var | /bin | /sbin | /lib | /lib64)
+	/ | "$DEVVM_CODE_DIR" | "$DEVVM_CODE_DIR"/* | /code | /code/* | "$DEVVM_GUEST_HOME" | "$DEVVM_GUEST_HOME"/* | /home | /home/* | /root | /etc | /usr | /var | /bin | /sbin | /lib | /lib64)
 		devvm_die "refusing to mount over protected guest path: $guest"
 		;;
 	esac
