@@ -8,7 +8,7 @@ Protected by default:
 - macOS home directory is not mounted.
 - Other projects are not mounted.
 - VM SSH keys are generated inside the VM.
-- Source code lives only in the VM disk under `/code`.
+- Source code lives only in the VM disk under `~/code`.
 
 Still in scope for risk:
 

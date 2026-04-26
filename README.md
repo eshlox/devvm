@@ -7,11 +7,11 @@ chezmoi. The opinionated workflow is:
 
 ```text
 macOS: terminal + Lima + Ansible + devvm CLI
-VM: Fedora + required system tools + optional dotfiles + source code under /code
+VM: Fedora + required system tools + optional dotfiles + source code under ~/code
 ```
 
 Project source code is not stored on macOS by default. DevVM creates and configures a
-VM, prepares `/code`, configures Git/SSH/GPG-capable tooling, and then you clone
+VM, prepares `~/code`, configures Git/SSH/GPG-capable tooling, and then you clone
 repositories manually from inside the VM.
 
 The default guest is intentionally small. Editors, terminal tools, Git workflow
@@ -64,8 +64,8 @@ guest:
 
 ```bash
 devvm enter myapp
-git clone git@github.com:you/myapp.git /code/myapp
-cd /code/myapp
+git clone git@github.com:you/myapp.git ~/code/myapp
+cd ~/code/myapp
 ```
 
 ## Commands
@@ -120,6 +120,12 @@ Fedora image selection is delegated to Lima's current built-in template:
 LIMA_TEMPLATE="template:fedora"
 ```
 
+The default code directory is inside the guest user's home:
+
+```bash
+DEVVM_CODE_DIR="$DEVVM_GUEST_HOME/code"
+```
+
 ## Explicit Shares
 
 No host directories are mounted by default. If you need file exchange, use an explicit
@@ -136,7 +142,7 @@ GLOBAL_MOUNTS="$HOME/devvm-share:/share:rw"
 ```
 
 Mounts use `host_path:guest_path[:ro|rw]`. DevVM refuses broad host mounts such as
-`$HOME` and protected guest paths such as `/code`.
+`$HOME` and protected guest paths such as `~/code`.
 
 Generated Lima YAML and Ansible inventory live at:
 

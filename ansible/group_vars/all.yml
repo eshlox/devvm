@@ -5,7 +5,7 @@ devvm_home: >-
 devvm_name: "devvm"
 devvm_role: "dev"
 devvm_upgrade_packages: "0"
-code_dir: "/code"
+code_dir: "{{ devvm_home }}/code"
 
 dev_packages_present:
   - git

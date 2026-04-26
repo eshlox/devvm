@@ -63,6 +63,7 @@ export DEVVM_CORE="$ROOT"
 export DEVVM_CONFIG="$CONFIG_DIR"
 export DEVVM_STATE="$STATE_DIR"
 export DEVVM_TEST_LOG="$LOG_FILE"
+export USER="dev"
 export PATH="$MOCK_BIN:$PATH"
 
 "$ROOT/bin/devvm" init >/dev/null
@@ -78,6 +79,7 @@ fi
 grep -Fq 'template:fedora' "$LOG_FILE"
 grep -Fq -- '--tty=false' "$LOG_FILE"
 grep -Fq 'mountPoint: "/share"' "$STATE_DIR/generated/devvm-app.yaml"
+grep -Fq 'code_dir="/home/dev/code"' "$STATE_DIR/generated/inventory.ini"
 grep -Fq 'git_user_name=""' "$STATE_DIR/generated/inventory.ini"
 grep -Fq 'ai_tools=""' "$STATE_DIR/generated/inventory.ini"
 

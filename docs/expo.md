@@ -7,8 +7,8 @@ for iOS Simulator-heavy Expo work. The supported path is still VM-first:
 devvm new myapp --ports "3000 5173 8081 8084 19000 19001 19002"
 devvm create myapp
 devvm enter myapp
-git clone git@github.com:you/myapp.git /code/myapp
-cd /code/myapp
+git clone git@github.com:you/myapp.git ~/code/myapp
+cd ~/code/myapp
 pnpm install
 pnpm expo start --host lan
 ```

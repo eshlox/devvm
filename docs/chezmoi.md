@@ -23,7 +23,7 @@ DevVM writes machine data for templates:
 [data]
     name = "myapp"
     devvm = true
-    codeDir = "/code"
+    codeDir = "/home/<user>/code"
 ```
 
 chezmoi is the right place to configure personal tools such as editors, terminal
