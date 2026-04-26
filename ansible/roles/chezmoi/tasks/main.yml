@@ -73,6 +73,13 @@
   when:
     - chezmoi_mode == "user-repo"
 
+- name: Check chezmoi dotfile status
+  become: false
+  ansible.builtin.command: chezmoi status
+  register: chezmoi_status
+  changed_when: false
+  when: chezmoi_mode != "none"
+
 - name: Apply chezmoi dotfiles
   become: false
   ansible.builtin.shell: |
@@ -80,4 +87,7 @@
     chezmoi apply {{ chezmoi_apply_args | default('') }}
   args:
     executable: /bin/bash
-  when: chezmoi_mode != "none"
+  changed_when: true
+  when:
+    - chezmoi_mode != "none"
+    - chezmoi_status.stdout | length > 0
