@@ -83,6 +83,9 @@ devvm update <name>
 devvm update-all
 devvm rebuild <name> [--yes]
 devvm rebuild-all [--yes]
+devvm backup <name>
+devvm backups [name]
+devvm restore <name> [backup-file]
 devvm key <name>
 devvm status
 devvm doctor
@@ -170,6 +173,32 @@ Generated Lima YAML and Ansible inventory live at:
 ```text
 ~/.local/share/devvm-state/generated/
 ```
+
+## Backups
+
+Project source still lives in the VM by default. To protect against accidental deletion,
+DevVM can stream a targeted tar backup from the VM to macOS without mounting the project
+directory:
+
+```bash
+devvm backup myapp
+devvm backups myapp
+devvm restore myapp
+```
+
+By default, backups include `~/code`, SSH keys, GPG data, Git config, selected AI CLI
+state, and shell history. Restores also include secrets by default. Use `--no-secrets`
+on either command to limit the operation to code.
+
+Backups are written under `~/.local/share/devvm-state/backups/<name>/`. With
+`DEVVM_BACKUP_ENCRYPT="auto"` DevVM encrypts backups with host GPG symmetric encryption
+when `gpg` is available, which may prompt for a backup passphrase; otherwise it writes a
+plaintext archive and warns when secrets are included. Use `--encrypt` to require GPG
+encryption or `--no-encrypt` to explicitly write plaintext.
+
+`devvm delete` automatically creates a backup before deleting a VM. `devvm rebuild`
+automatically backs up, recreates the VM, and restores that backup. Use `--no-backup` or
+`--no-restore` only when you intentionally want disposable state.
 
 ## AI
 

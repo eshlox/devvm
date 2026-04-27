@@ -9,6 +9,7 @@ Protected by default:
 - Other projects are not mounted.
 - VM SSH keys are generated inside the VM.
 - Source code lives only in the VM disk under `~/code`.
+- Optional backups are host-side tar archives, not live mounts.
 - Optional GPG commit signing imports only selected signing subkeys into VMs; the
   primary GPG key should remain on macOS.
 
@@ -23,6 +24,9 @@ Still in scope for risk:
   revoked or expires.
 - Reusing one GPG signing subkey across many VMs increases the blast radius compared
   with one subkey per VM/project.
+- Backups that include secrets contain VM SSH keys, GPG data, shell history, and tool
+  credentials. Keep `DEVVM_BACKUP_ENCRYPT="auto"` or `--encrypt` unless you explicitly
+  need plaintext.
 - AI requests sent to the llama.cpp VM expose prompt content to that AI VM.
 - Host-side Lima, Ansible, and terminal processes remain trusted.
 - `config.env`, `local.env`, and VM config files are sourced by Bash on macOS. Treat
