@@ -50,16 +50,21 @@ _devvm_completion_reply_vms() {
 
 _devvm_completion() {
 	local cur prev cmd commands new_options yes_options ai_commands completion_shells
+	local gpg_commands gpg_create_options gpg_install_options gpg_export_public_options
 	COMPREPLY=()
 
 	cur="${COMP_WORDS[$COMP_CWORD]}"
 	prev="${COMP_WORDS[$((COMP_CWORD - 1))]}"
 	cmd="${COMP_WORDS[1]:-}"
 
-	commands="help init new create enter ssh start stop delete rm update update-all rebuild rebuild-all key status list doctor ai completion self-update"
+	commands="help init new create enter ssh start stop delete rm update update-all rebuild rebuild-all key status list doctor ai gpg completion self-update"
 	new_options="--ports --cpus --memory --disk --node-version --mount --share"
 	yes_options="--yes -y"
 	ai_commands="create update enter key help -h --help"
+	gpg_commands="create-subkey install list export-public help -h --help"
+	gpg_create_options="--label --expire --algo --output --force"
+	gpg_install_options="--public --signing-key"
+	gpg_export_public_options="--output"
 	completion_shells="bash zsh"
 
 	if [ "$COMP_CWORD" -eq 1 ]; then
@@ -110,6 +115,46 @@ _devvm_completion() {
 			_devvm_completion_reply_words "$cur" "$ai_commands"
 		fi
 		;;
+	gpg)
+		if [ "$COMP_CWORD" -eq 2 ]; then
+			_devvm_completion_reply_words "$cur" "$gpg_commands"
+			return 0
+		fi
+		case "${COMP_WORDS[2]:-}" in
+		create-subkey)
+			case "$prev" in
+			--label | --expire | --algo | --output)
+				return 0
+				;;
+			esac
+			if [[ "$cur" == -* ]] || [ "$COMP_CWORD" -gt 3 ]; then
+				_devvm_completion_reply_words "$cur" "$gpg_create_options"
+			fi
+			;;
+		install)
+			case "$prev" in
+			--public | --signing-key)
+				return 0
+				;;
+			esac
+			if [ "$COMP_CWORD" -eq 3 ]; then
+				_devvm_completion_reply_vms "$cur"
+			elif [[ "$cur" == -* ]] || [ "$COMP_CWORD" -gt 4 ]; then
+				_devvm_completion_reply_words "$cur" "$gpg_install_options"
+			fi
+			;;
+		export-public)
+			case "$prev" in
+			--output)
+				return 0
+				;;
+			esac
+			if [[ "$cur" == -* ]] || [ "$COMP_CWORD" -gt 3 ]; then
+				_devvm_completion_reply_words "$cur" "$gpg_export_public_options"
+			fi
+			;;
+		esac
+		;;
 	completion)
 		if [ "$COMP_CWORD" -eq 2 ]; then
 			_devvm_completion_reply_words "$cur" "$completion_shells"
@@ -118,7 +163,7 @@ _devvm_completion() {
 	esac
 }
 
-complete -F _devvm_completion devvm
+complete -o default -F _devvm_completion devvm
 BASH
 }
 
@@ -169,6 +214,7 @@ _devvm_top_level() {
 		"list:show Lima VM status"
 		"doctor:check host setup"
 		"ai:manage the AI VM"
+		"gpg:manage GPG signing subkeys"
 		"completion:print shell completion"
 		"self-update:update the DevVM checkout"
 	)
@@ -216,6 +262,31 @@ _devvm() {
 		;;
 	ai)
 		_arguments "2:AI command:((create\\:create update\\:update enter\\:enter key\\:key help\\:help))"
+		;;
+	gpg)
+		case "${words[3]:-}" in
+		create-subkey)
+			_arguments \
+				"--label[set export file label]:label:" \
+				"--expire[set subkey expiration, e.g. 1y]:expiration:" \
+				"--algo[set GPG subkey algorithm]:algorithm:" \
+				"--output[set export directory]:directory:_files -/" \
+				"--force[overwrite existing export files]"
+			;;
+		install)
+			_arguments \
+				"3:VM name:_devvm_vm_names" \
+				"4:secret subkey bundle:_files" \
+				"--public[public key bundle to import first]:public key:_files" \
+				"--signing-key[signing subkey fingerprint]:fingerprint:"
+			;;
+		export-public)
+			_arguments "--output[set output file]:file:_files"
+			;;
+		*)
+			_arguments "2:GPG command:((create-subkey\\:create-signing-subkey install\\:install-subkey list\\:list-subkeys export-public\\:export-public-key help\\:help))"
+			;;
+		esac
 		;;
 	completion)
 		_arguments "2:shell:((bash\\:Bash zsh\\:Zsh))"

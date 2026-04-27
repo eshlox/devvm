@@ -9,6 +9,8 @@ Protected by default:
 - Other projects are not mounted.
 - VM SSH keys are generated inside the VM.
 - Source code lives only in the VM disk under `~/code`.
+- Optional GPG commit signing imports only selected signing subkeys into VMs; the
+  primary GPG key should remain on macOS.
 
 Still in scope for risk:
 
@@ -17,6 +19,10 @@ Still in scope for risk:
   still weaken the boundary.
 - Forwarded ports expose services on the host.
 - A compromised VM can access code, keys, history, and secrets stored inside that VM.
+- A compromised VM that has a GPG signing subkey can sign commits until that subkey is
+  revoked or expires.
+- Reusing one GPG signing subkey across many VMs increases the blast radius compared
+  with one subkey per VM/project.
 - AI requests sent to the llama.cpp VM expose prompt content to that AI VM.
 - Host-side Lima, Ansible, and terminal processes remain trusted.
 - `config.env`, `local.env`, and VM config files are sourced by Bash on macOS. Treat
