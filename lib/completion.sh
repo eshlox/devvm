@@ -49,7 +49,8 @@ _devvm_completion_reply_vms() {
 }
 
 _devvm_completion() {
-	local cur prev cmd commands new_options yes_options delete_options rebuild_options backup_options restore_options ai_commands completion_shells
+	local cur prev cmd commands new_options yes_options delete_options rebuild_options backup_options restore_options completion_shells
+	local ai_commands ai_logs_options
 	local gpg_commands gpg_create_options gpg_install_options gpg_export_public_options
 	COMPREPLY=()
 
@@ -58,13 +59,14 @@ _devvm_completion() {
 	cmd="${COMP_WORDS[1]:-}"
 
 	commands="help init new create enter ssh start stop delete rm update update-all rebuild rebuild-all backup backups restore key status list doctor ai gpg completion self-update"
-	new_options="--ports --cpus --memory --disk --node-version --mount --share"
+	new_options="--ports --cpus --memory --disk --packages --setup --mount --share"
 	yes_options="--yes -y"
 	delete_options="$yes_options --backup --no-backup --include-secrets --no-secrets --encrypt --no-encrypt"
 	rebuild_options="$delete_options --restore --no-restore"
 	backup_options="--include-secrets --no-secrets --encrypt --no-encrypt --output"
 	restore_options="--include-secrets --no-secrets"
-	ai_commands="create update enter key help -h --help"
+	ai_commands="create update enter key endpoint status logs help -h --help"
+	ai_logs_options="--lines --follow -f"
 	gpg_commands="create-subkey install list export-public help -h --help"
 	gpg_create_options="--label --expire --algo --output --force"
 	gpg_install_options="--public --signing-key"
@@ -79,7 +81,7 @@ _devvm_completion() {
 	case "$cmd" in
 	new)
 		case "$prev" in
-		--ports | --cpus | --memory | --disk | --node-version | --mount | --share)
+		--ports | --cpus | --memory | --disk | --packages | --setup | --mount | --share)
 			return 0
 			;;
 		esac
@@ -148,7 +150,20 @@ _devvm_completion() {
 	ai)
 		if [ "$COMP_CWORD" -eq 2 ]; then
 			_devvm_completion_reply_words "$cur" "$ai_commands"
+			return 0
 		fi
+		case "${COMP_WORDS[2]:-}" in
+		logs)
+			case "$prev" in
+			--lines)
+				return 0
+				;;
+			esac
+			if [[ "$cur" == -* ]] || [ "$COMP_CWORD" -gt 3 ]; then
+				_devvm_completion_reply_words "$cur" "$ai_logs_options"
+			fi
+			;;
+		esac
 		;;
 	gpg)
 		if [ "$COMP_CWORD" -eq 2 ]; then
@@ -251,7 +266,7 @@ _devvm_top_level() {
 		"status:show Lima VM status"
 		"list:show Lima VM status"
 		"doctor:check host setup"
-		"ai:manage the AI VM"
+		"ai:manage the llama.cpp service VM"
 		"gpg:manage GPG signing subkeys"
 		"completion:print shell completion"
 		"self-update:update the DevVM checkout"
@@ -277,7 +292,8 @@ _devvm() {
 			"--cpus[set VM CPU count]:cpus:" \
 			"--memory[set VM memory, e.g. 8GiB]:memory:" \
 			"--disk[set VM disk size, e.g. 80GiB]:disk:" \
-			"--node-version[install a Node version in the VM]:version:" \
+			"--packages[set per-VM DNF package list]:packages:" \
+			"--setup[add a per-VM setup script path]:script:_files" \
 			"--mount[add a host:guest[:ro|rw] mount]:mount:" \
 			"--share[alias for --mount]:mount:"
 		;;
@@ -346,7 +362,16 @@ _devvm() {
 			"--no-secrets[restore only code]"
 		;;
 	ai)
-		_arguments "2:AI command:((create\\:create update\\:update enter\\:enter key\\:key help\\:help))"
+		case "${words[3]:-}" in
+		logs)
+			_arguments \
+				"--lines[set number of journal lines]:lines:" \
+				"(-f --follow)"{-f,--follow}"[follow logs]"
+			;;
+		*)
+			_arguments "2:AI command:((create\\:create-llama-vm update\\:update-llama-vm enter\\:enter-llama-vm key\\:print-ai-vm-key endpoint\\:print-api-endpoint status\\:show-service-status logs\\:show-service-logs help\\:help))"
+			;;
+		esac
 		;;
 	gpg)
 		case "${words[3]:-}" in

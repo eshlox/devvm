@@ -42,6 +42,15 @@ case "${1:-}" in
   start)
     printf 'limactl start %q\n' "${2:-}" >>"$DEVVM_TEST_LOG"
     ;;
+  shell)
+    printf 'limactl shell' >>"$DEVVM_TEST_LOG"
+    shift
+    for arg in "$@"; do
+      printf ' %q' "$arg" >>"$DEVVM_TEST_LOG"
+    done
+    printf '\n' >>"$DEVVM_TEST_LOG"
+    cat >>"$DEVVM_TEST_SHELL_STDIN"
+    ;;
   delete)
     printf 'limactl delete' >>"$DEVVM_TEST_LOG"
     shift
@@ -80,24 +89,14 @@ set -euo pipefail
 exit 0
 MOCK
 
-cat >"$MOCK_BIN/ansible-playbook" <<'MOCK'
-#!/usr/bin/env bash
-set -euo pipefail
-
-printf 'ansible-playbook' >>"$DEVVM_TEST_LOG"
-for arg in "$@"; do
-  printf ' %q' "$arg" >>"$DEVVM_TEST_LOG"
-done
-printf '\n' >>"$DEVVM_TEST_LOG"
-MOCK
-
-chmod +x "$MOCK_BIN/limactl" "$MOCK_BIN/ssh" "$MOCK_BIN/gpg" "$MOCK_BIN/ansible-playbook"
+chmod +x "$MOCK_BIN/limactl" "$MOCK_BIN/ssh" "$MOCK_BIN/gpg"
 
 export DEVVM_CORE="$ROOT"
 export DEVVM_CONFIG="$CONFIG_DIR"
 export DEVVM_STATE="$STATE_DIR"
 export DEVVM_TEST_LOG="$LOG_FILE"
 export DEVVM_TEST_LIMA_LIST="$TMP_ROOT/lima-list"
+export DEVVM_TEST_SHELL_STDIN="$TMP_ROOT/shell-stdin"
 export DEVVM_TEST_SSH_STDIN="$TMP_ROOT/ssh-stdin"
 export USER="dev"
 export HOME="$TMP_ROOT/home"
@@ -105,12 +104,40 @@ export PATH="$MOCK_BIN:$PATH"
 mkdir -p "$HOME"
 
 "$ROOT/bin/devvm" init >/dev/null
-"$ROOT/bin/devvm" new app --ports "3000 5173" --mount "$TMP_ROOT/share:/share:rw" >/dev/null
+
+cat >"$TMP_ROOT/global-setup.sh" <<'SCRIPT'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'global setup\n' >/tmp/devvm-global-setup
+SCRIPT
+
+cat >"$TMP_ROOT/app-setup.sh" <<'SCRIPT'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'app setup\n' >/tmp/devvm-app-setup
+SCRIPT
+
+cat >>"$CONFIG_DIR/config.env" <<CONFIG
+GLOBAL_PACKAGES="helix"
+GLOBAL_SETUP_SCRIPTS="$TMP_ROOT/global-setup.sh"
+GIT_USER_NAME="Dev User"
+GIT_USER_EMAIL="dev@example.com"
+AI_LLAMA_MODELS="tiny.gguf|https://models.example/tiny.gguf|sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+AI_LLAMA_MODEL="tiny.gguf"
+CONFIG
+
+"$ROOT/bin/devvm" new app --ports "3000 5173" --packages "ripgrep fd-find" --setup "$TMP_ROOT/app-setup.sh" --mount "$TMP_ROOT/share:/share:rw" >/dev/null
 "$ROOT/bin/devvm" create app >/dev/null
 printf 'devvm-app\n' >"$DEVVM_TEST_LIMA_LIST"
+"$ROOT/bin/devvm" ai create >/dev/null
+printf 'devvm-app\ndevvm-ai\n' >"$DEVVM_TEST_LIMA_LIST"
 
-grep -Fq "NODE_VERSION=''" "$CONFIG_DIR/vms/app.env"
+grep -Fq "PACKAGES='ripgrep fd-find'" "$CONFIG_DIR/vms/app.env"
+grep -Fq "SETUP_SCRIPTS='$TMP_ROOT/app-setup.sh'" "$CONFIG_DIR/vms/app.env"
 grep -Fq "MOUNTS='$TMP_ROOT/share:/share:rw'" "$CONFIG_DIR/vms/app.env"
+grep -Fq "DEVVM_ROLE='ai'" "$CONFIG_DIR/vms/ai.env"
+grep -Fq "PACKAGES='llama-cpp'" "$CONFIG_DIR/vms/ai.env"
+grep -Fq "PORTS='8080:18080'" "$CONFIG_DIR/vms/ai.env"
 if grep -Fq "TMUX_SESSION" "$CONFIG_DIR/vms/app.env"; then
 	echo "unexpected TMUX_SESSION in generated VM config" >&2
 	exit 1
@@ -118,16 +145,17 @@ fi
 grep -Fq 'template:fedora' "$LOG_FILE"
 grep -Fq -- '--tty=false' "$LOG_FILE"
 grep -Fq 'mountPoint: "/share"' "$STATE_DIR/generated/devvm-app.yaml"
-grep -Fq 'code_dir="/home/dev/code"' "$STATE_DIR/generated/inventory.ini"
-grep -Fq 'git_user_name=""' "$STATE_DIR/generated/inventory.ini"
-grep -Fq 'ai_tools=""' "$STATE_DIR/generated/inventory.ini"
-
-cat >>"$CONFIG_DIR/config.env" <<'CONFIG'
-AI_LLAMA_MODELS="commit.gguf|https://example.com/commit.gguf"
-AI_TOOLS="claude codex"
-CONFIG
-
-"$ROOT/bin/devvm" ai create >/dev/null
+grep -Fq 'limactl shell devvm-app' "$LOG_FILE"
+grep -Fq 'helix' "$LOG_FILE"
+grep -Fq 'ripgrep' "$LOG_FILE"
+grep -Fq 'fd-find' "$LOG_FILE"
+grep -Fq "$TMP_ROOT/global-setup.sh" "$LOG_FILE"
+grep -Fq "$TMP_ROOT/app-setup.sh" "$LOG_FILE"
+grep -Fq 'limactl create --name devvm-ai' "$LOG_FILE"
+grep -Fq 'llama-cpp' "$LOG_FILE"
+grep -Fq 'devvm-llama.service' "$LOG_FILE"
+grep -Fq 'tiny.gguf' "$LOG_FILE"
+"$ROOT/bin/devvm" ai endpoint | grep -Fq 'http://host.lima.internal:18080/v1'
 "$ROOT/bin/devvm" gpg --help | grep -Fq 'devvm gpg create-subkey'
 mkdir -p "$HOME/.lima/devvm-app"
 touch "$HOME/.lima/devvm-app/ssh.config"
@@ -142,12 +170,6 @@ grep -Fq 'backup-archive' "$BACKUP_FILE"
 "$ROOT/bin/devvm" restore app "$BACKUP_FILE" --no-secrets >/dev/null
 "$ROOT/bin/devvm" delete app --yes --no-encrypt --no-secrets >/dev/null
 
-grep -Fq "DEVVM_ROLE='ai'" "$CONFIG_DIR/vms/ai.env"
-grep -Fq "PORTS='8080:18080'" "$CONFIG_DIR/vms/ai.env"
-grep -Fq 'devvm_role="ai"' "$STATE_DIR/generated/inventory.ini"
-grep -Fq 'ai_commit_model="commit.gguf"' "$STATE_DIR/generated/inventory.ini"
-grep -Fq 'guestPort: 8080' "$STATE_DIR/generated/devvm-ai.yaml"
-grep -Fq 'hostPort: 18080' "$STATE_DIR/generated/devvm-ai.yaml"
 grep -Fq 'ssh -F' "$LOG_FILE"
 grep -Fq 'lima-devvm-app' "$LOG_FILE"
 grep -Fq 'devvm-backup' "$LOG_FILE"
@@ -185,6 +207,7 @@ devvm_assert_completion "app" devvm ""
 devvm_assert_completion "app" devvm enter ""
 devvm_assert_completion "all" devvm stop ""
 devvm_assert_completion "--ports" devvm new app --
+devvm_assert_completion "--packages" devvm new app --
 devvm_assert_completion "--yes" devvm delete app ""
 devvm_assert_completion "--no-backup" devvm delete app --
 devvm_assert_completion "--yes" devvm delete app --
@@ -193,8 +216,10 @@ devvm_assert_completion "app" devvm backup ""
 devvm_assert_completion "--no-encrypt" devvm backup app --
 devvm_assert_completion "app" devvm restore ""
 devvm_assert_completion "--no-secrets" devvm restore app backup.tar.gz --
-devvm_assert_completion "create" devvm ai ""
 devvm_assert_completion "gpg" devvm ""
+devvm_assert_completion "ai" devvm ""
+devvm_assert_completion "create" devvm ai ""
+devvm_assert_completion "--lines" devvm ai logs --
 devvm_assert_completion "create-subkey" devvm gpg ""
 devvm_assert_completion "create-subkey" devvm gpg c
 devvm_assert_completion "app" devvm gpg install ""

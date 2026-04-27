@@ -24,6 +24,17 @@ devvm_require_command() {
 	devvm_command_exists "$cmd" || devvm_die "required command not found: $cmd"
 }
 
+devvm_bool() {
+	local value name
+	value="$1"
+	name="$2"
+	case "$value" in
+	1 | true | yes | on) printf '1\n' ;;
+	0 | false | no | off | '') printf '0\n' ;;
+	*) devvm_die "$name must be 1 or 0" ;;
+	esac
+}
+
 devvm_validate_name() {
 	local name
 	name="$1"

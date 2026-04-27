@@ -19,6 +19,8 @@ Still in scope for risk:
 - DevVM rejects broad/sensitive host shares by default, but an explicit override can
   still weaken the boundary.
 - Forwarded ports expose services on the host.
+- The optional llama.cpp VM exposes a forwarded local API port. Other VMs can reach it
+  through the macOS host forwarding address.
 - A compromised VM can access code, keys, history, and secrets stored inside that VM.
 - A compromised VM that has a GPG signing subkey can sign commits until that subkey is
   revoked or expires.
@@ -27,10 +29,12 @@ Still in scope for risk:
 - Backups that include secrets contain VM SSH keys, GPG data, shell history, and tool
   credentials. Keep `DEVVM_BACKUP_ENCRYPT="auto"` or `--encrypt` unless you explicitly
   need plaintext.
-- AI requests sent to the llama.cpp VM expose prompt content to that AI VM.
-- Host-side Lima, Ansible, and terminal processes remain trusted.
+- Host-side Lima and terminal processes remain trusted.
 - `config.env`, `local.env`, and VM config files are sourced by Bash on macOS. Treat
   them as code, not as inert data.
+- Setup scripts configured with `GLOBAL_SETUP_SCRIPTS` or `SETUP_SCRIPTS` run inside
+  VMs with the same trust level as commands you type manually in that VM.
+- Configured AI model downloads trust the configured URL and checksum. DevVM requires
+  SHA-256 checksums for model downloads and rejects HTTP by default.
 - `devvm self-update` trusts the configured Git remote. A compromised upstream can
   execute host-side code on the next run.
-- Ansible host key checking is disabled for local ephemeral Lima VMs.

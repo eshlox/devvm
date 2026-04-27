@@ -27,14 +27,14 @@ source "$DEVVM_CORE/lib/util.sh"
 source "$DEVVM_CORE/lib/config.sh"
 # shellcheck source=../lib/lima.sh
 source "$DEVVM_CORE/lib/lima.sh"
-# shellcheck source=../lib/ansible.sh
-source "$DEVVM_CORE/lib/ansible.sh"
+# shellcheck source=../lib/provision.sh
+source "$DEVVM_CORE/lib/provision.sh"
 # shellcheck source=../lib/vm.sh
 source "$DEVVM_CORE/lib/vm.sh"
-# shellcheck source=../lib/backup.sh
-source "$DEVVM_CORE/lib/backup.sh"
 # shellcheck source=../lib/ai.sh
 source "$DEVVM_CORE/lib/ai.sh"
+# shellcheck source=../lib/backup.sh
+source "$DEVVM_CORE/lib/backup.sh"
 # shellcheck source=../lib/gpg.sh
 source "$DEVVM_CORE/lib/gpg.sh"
 # shellcheck source=../lib/completion.sh
@@ -44,7 +44,7 @@ devvm_help() {
 	cat <<'HELP'
 Usage:
   devvm init
-  devvm new <name> [--ports "3000 5173"] [--mount host:guest[:ro|rw]]
+  devvm new <name> [--ports "3000 5173"] [--packages "..."] [--setup script.sh] [--mount host:guest[:ro|rw]]
   devvm create <name>
   devvm enter <name>
   devvm ssh <name> [command...]
@@ -61,7 +61,7 @@ Usage:
   devvm key <name>
   devvm status
   devvm doctor
-  devvm ai create|update|enter|key
+  devvm ai create|update|enter|key|endpoint|status|logs
   devvm gpg create-subkey|install|list|export-public
   devvm completion bash|zsh
   devvm self-update
@@ -72,7 +72,7 @@ HELP
 }
 
 devvm_main() {
-	local cmd subcmd
+	local cmd
 	cmd="${1:-help}"
 	if [ "$#" -gt 0 ]; then
 		shift
@@ -137,18 +137,7 @@ devvm_main() {
 		devvm_doctor "$@"
 		;;
 	ai)
-		subcmd="${1:-help}"
-		if [ "$#" -gt 0 ]; then
-			shift
-		fi
-		case "$subcmd" in
-		create) devvm_ai_create "$@" ;;
-		update) devvm_ai_update "$@" ;;
-		enter) devvm_ai_enter "$@" ;;
-		key) devvm_ai_key "$@" ;;
-		help | -h | --help) devvm_ai_help ;;
-		*) devvm_die "unknown ai command: $subcmd" ;;
-		esac
+		devvm_ai "$@"
 		;;
 	gpg)
 		devvm_gpg "$@"
