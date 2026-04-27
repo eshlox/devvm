@@ -28,8 +28,8 @@ The generated VM config lives at:
 ~/.config/devvm/vms/ai.env
 ```
 
-By default it installs only Fedora's `llama-cpp` package and forwards guest port `8080`
-to macOS port `18080`.
+The generated AI VM config sets `PACKAGES="llama-cpp"` and forwards guest port `8080`
+to macOS port `18080`. Any `GLOBAL_PACKAGES` you configure still apply.
 
 ## Models
 

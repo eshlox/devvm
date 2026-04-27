@@ -23,8 +23,8 @@ management app is a separate product-sized effort.
 ## Apple Container
 
 Apple's `container` runtime is worth watching, but it is not a drop-in replacement for
-DevVM today. It currently targets macOS 26 on Apple silicon, is pre-1.0, and is
-optimized for OCI containers rather than long-lived mutable development VMs.
+DevVM. Its model is optimized for OCI containers rather than long-lived mutable
+development VMs with project-local disks, VM-local SSH keys, GPG subkeys, and backups.
 
 DevVM should keep the VM lifecycle behind `lib/lima.sh` so a future backend can be
 introduced without changing the user config format.

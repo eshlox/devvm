@@ -23,6 +23,24 @@ The optional AI VM is separate from development VMs. It installs Fedora's `llama
 package and exposes a local OpenAI-compatible endpoint for users who want local models
 without installing llama.cpp on macOS.
 
+## Design Intent
+
+DevVM is intentionally small. Its job is to make isolated project VMs easy to create,
+enter, update, back up, rebuild, and delete. It brings a simple config layout, VM-local
+SSH keys, optional GPG signing subkeys, explicit shares, backups, and an optional local
+llama.cpp service VM.
+
+It is not a full development platform, package manager, dotfiles manager, container
+workflow, IDE integration, or language runtime installer. Project tools such as
+editors, shells, Node.js, Rust, Python, Claude, Codex, and dotfiles belong in user-owned
+DNF package lists and setup scripts.
+
+DevVM exists because the adjacent tools are broader than this project needs. Dev
+Containers, DevPod, Codespaces, Coder, Gitpod, Nix, Devbox, Vagrant, Docker Desktop,
+Colima, and OrbStack are useful, but they ask users to adopt larger workflows, learn
+extra concepts, or expose more host/project state. DevVM keeps the contract narrower:
+isolate each project from macOS and from other projects, then get out of the way.
+
 ## Requirements
 
 - macOS on Apple Silicon
@@ -155,8 +173,8 @@ The default code directory is inside the guest user's home:
 DEVVM_CODE_DIR="$DEVVM_GUEST_HOME/code"
 ```
 
-No packages are installed by default. Install Fedora packages globally for every VM or
-per VM:
+Normal project VMs install no packages by default. Install Fedora packages globally for
+every VM or per VM:
 
 ```bash
 GLOBAL_PACKAGES="helix ripgrep"

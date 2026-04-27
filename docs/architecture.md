@@ -1,6 +1,6 @@
 # Architecture
 
-DevVM is a thin lifecycle wrapper around trusted tools:
+DevVM is deliberately small. It is a thin lifecycle wrapper around trusted tools:
 
 - Lima owns VM creation, start, stop, delete, networking, mounts, and SSH.
 - Fedora is the default guest distribution.
@@ -17,6 +17,11 @@ upgrades.
 The primary boundary is VM-first isolation. Source code is cloned manually inside the VM
 under `~/code`; there is no project folder on macOS by default. Explicit shares are
 available only for narrow file exchange paths.
+
+DevVM should avoid owning user toolchains. It provides VM lifecycle, config loading,
+SSH key setup, optional GPG subkey installation, backups, explicit shares, and the
+optional llama.cpp service VM. Editors, shells, language runtimes, package ecosystems,
+dotfiles, and client AI tools stay in user-owned package lists and setup scripts.
 
 The default guest does not install personal tools such as editors, lazygit, file
 managers, shells, language runtimes, or terminal multiplexers. Those belong in

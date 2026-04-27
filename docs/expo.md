@@ -15,7 +15,7 @@ pnpm install
 pnpm expo start --host lan
 ```
 
-For fnm, Claude, Codex, or other tools outside Fedora DNF, use a per-VM setup script:
+For tools or setup steps that are not Fedora packages, use a per-VM setup script:
 
 ```bash
 devvm new myapp --setup "$HOME/.config/devvm/setup/myapp.sh"
