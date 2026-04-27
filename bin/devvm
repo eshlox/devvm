@@ -44,7 +44,7 @@ devvm_help() {
 	cat <<'HELP'
 Usage:
   devvm init
-  devvm new <name> [--ports "3000 5173"] [--mount host:guest[:ro|rw]]
+  devvm new <name> [--ports "3000 5173"] [--node] [--mount host:guest[:ro|rw]]
   devvm create <name>
   devvm enter <name>
   devvm ssh <name> [command...]

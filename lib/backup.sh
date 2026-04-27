@@ -195,19 +195,15 @@ devvm_backup_create() {
 	fi
 	if [ "$encrypted" = "1" ]; then
 		devvm_log "encrypting backup with GPG symmetric encryption"
-		set +e
+		status="0"
 		ssh -F "$DEVVM_BACKUP_SSH_CONFIG" "lima-$VM_NAME" "$ssh_command" |
-			gpg --symmetric --cipher-algo AES256 --output "$tmp_output"
-		status="$?"
-		set -e
+			gpg --symmetric --cipher-algo AES256 --output "$tmp_output" || status="$?"
 	else
 		if [ "$include_secrets" = "1" ]; then
 			devvm_warn "backup includes secrets and is not encrypted"
 		fi
-		set +e
-		ssh -F "$DEVVM_BACKUP_SSH_CONFIG" "lima-$VM_NAME" "$ssh_command" >"$tmp_output"
-		status="$?"
-		set -e
+		status="0"
+		ssh -F "$DEVVM_BACKUP_SSH_CONFIG" "lima-$VM_NAME" "$ssh_command" >"$tmp_output" || status="$?"
 	fi
 
 	if [ "$status" -ne 0 ]; then
@@ -350,16 +346,13 @@ devvm_restore_file() {
 		devvm_log "restore includes VM secrets"
 	fi
 
-	set +e
+	status="0"
 	if [ "$encrypted" = "1" ]; then
 		gpg --decrypt "$backup_file" |
-			ssh -F "$DEVVM_BACKUP_SSH_CONFIG" "lima-$VM_NAME" "$ssh_command"
-		status="$?"
+			ssh -F "$DEVVM_BACKUP_SSH_CONFIG" "lima-$VM_NAME" "$ssh_command" || status="$?"
 	else
-		ssh -F "$DEVVM_BACKUP_SSH_CONFIG" "lima-$VM_NAME" "$ssh_command" <"$backup_file"
-		status="$?"
+		ssh -F "$DEVVM_BACKUP_SSH_CONFIG" "lima-$VM_NAME" "$ssh_command" <"$backup_file" || status="$?"
 	fi
-	set -e
 
 	[ "$status" -eq 0 ] || return "$status"
 	devvm_log "restore complete: $VM_NAME"

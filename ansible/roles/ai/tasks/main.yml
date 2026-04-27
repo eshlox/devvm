@@ -1,46 +1,10 @@
 ---
-- name: Install configured AI CLIs
-  become: false
-  ansible.builtin.shell: |
-    set -euo pipefail
-    export PATH="$HOME/.local/share/fnm:$HOME/.local/bin:$PATH"
-    eval "$(fnm env --use-on-cd --shell bash)"
-
-    tools={{ ai_tools | quote }}
-    for tool in $tools; do
-      case "$tool" in
-        -*)
-          echo "AI_TOOLS entries must not start with '-': $tool" >&2
-          exit 1
-          ;;
-        claude|claude@*)
-          npm install -g -- "@anthropic-ai/claude-code${tool#claude}"
-          ;;
-        codex|codex@*)
-          npm install -g -- "@openai/codex${tool#codex}"
-          ;;
-        "")
-          ;;
-        *)
-          echo "unsupported AI tool in AI_TOOLS: $tool" >&2
-          exit 1
-          ;;
-      esac
-    done
-
-    packages={{ ai_extra_npm_packages | quote }}
-    for package in $packages; do
-      [ -n "$package" ] || continue
-      case "$package" in
-        -*)
-          echo "AI_EXTRA_NPM_PACKAGES entries must not start with '-': $package" >&2
-          exit 1
-          ;;
-      esac
-      npm install -g -- "$package"
-    done
-  args:
-    executable: /bin/bash
+- name: Reject npm-managed AI CLI installs
+  ansible.builtin.fail:
+    msg:
+      "AI_TOOLS and AI_EXTRA_NPM_PACKAGES install tools from npm, not Fedora DNF. Remove
+      those settings or install external CLIs through your own dotfiles when you
+      explicitly accept that source."
   when:
     - devvm_role != "ai"
     - (ai_tools | length > 0) or (ai_extra_npm_packages | length > 0)

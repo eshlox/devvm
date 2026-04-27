@@ -58,7 +58,7 @@ _devvm_completion() {
 	cmd="${COMP_WORDS[1]:-}"
 
 	commands="help init new create enter ssh start stop delete rm update update-all rebuild rebuild-all backup backups restore key status list doctor ai gpg completion self-update"
-	new_options="--ports --cpus --memory --disk --node-version --mount --share"
+	new_options="--ports --cpus --memory --disk --node --no-node --node-version --mount --share"
 	yes_options="--yes -y"
 	delete_options="$yes_options --backup --no-backup --include-secrets --no-secrets --encrypt --no-encrypt"
 	rebuild_options="$delete_options --restore --no-restore"
@@ -277,7 +277,9 @@ _devvm() {
 			"--cpus[set VM CPU count]:cpus:" \
 			"--memory[set VM memory, e.g. 8GiB]:memory:" \
 			"--disk[set VM disk size, e.g. 80GiB]:disk:" \
-			"--node-version[install a Node version in the VM]:version:" \
+			"--node[install Fedora Node.js and pnpm packages]" \
+			"--no-node[do not install Node.js packages]" \
+			"--node-version[deprecated alias for --node]:value:" \
 			"--mount[add a host:guest[:ro|rw] mount]:mount:" \
 			"--share[alias for --mount]:mount:"
 		;;

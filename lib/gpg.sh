@@ -27,12 +27,11 @@ devvm_gpg_safe_label() {
 }
 
 devvm_gpg_primary_fingerprint() {
-	local key fpr
+	local key output fpr
 	key="$1"
-	fpr="$(
-		gpg --with-colons --fingerprint --list-secret-keys "$key" 2>/dev/null |
-			awk -F: '$1 == "fpr" { print $10; exit }'
-	)"
+	output="$(gpg --with-colons --fingerprint --list-secret-keys "$key" 2>&1)" ||
+		devvm_die "failed to inspect GPG secret key '$key': $output"
+	fpr="$(printf '%s\n' "$output" | awk -F: '$1 == "fpr" { print $10; exit }')"
 	[ -n "$fpr" ] || devvm_die "secret primary key not found on host: $key"
 	printf '%s\n' "$fpr"
 }

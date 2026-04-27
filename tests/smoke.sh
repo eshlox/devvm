@@ -104,12 +104,32 @@ export HOME="$TMP_ROOT/home"
 export PATH="$MOCK_BIN:$PATH"
 mkdir -p "$HOME"
 
+LEGACY_CONFIG_DIR="$TMP_ROOT/legacy-config"
+mkdir -p "$LEGACY_CONFIG_DIR"
+cat >"$LEGACY_CONFIG_DIR/config.env" <<'CONFIG'
+AI_ALLOW_INSECURE_MODEL_URLS="1"
+CONFIG
+
+DEVVM_CORE="$ROOT" DEVVM_CONFIG="$LEGACY_CONFIG_DIR" DEVVM_STATE="$TMP_ROOT/legacy-state" bash -c '
+set -euo pipefail
+source "$DEVVM_CORE/lib/util.sh"
+source "$DEVVM_CORE/lib/config.sh"
+devvm_load_config
+[ "$AI_ALLOW_HTTP_MODEL_URLS" = "1" ]
+'
+
 "$ROOT/bin/devvm" init >/dev/null
+"$ROOT/bin/devvm" new nodeapp --node >/dev/null
+"$ROOT/bin/devvm" create nodeapp >/dev/null
+grep -Fq "INSTALL_NODE='1'" "$CONFIG_DIR/vms/nodeapp.env"
+grep -Fq 'devvm-nodeapp' "$STATE_DIR/generated/inventory.ini"
+grep -Fq 'install_node="1"' "$STATE_DIR/generated/inventory.ini"
+
 "$ROOT/bin/devvm" new app --ports "3000 5173" --mount "$TMP_ROOT/share:/share:rw" >/dev/null
 "$ROOT/bin/devvm" create app >/dev/null
 printf 'devvm-app\n' >"$DEVVM_TEST_LIMA_LIST"
 
-grep -Fq "NODE_VERSION=''" "$CONFIG_DIR/vms/app.env"
+grep -Fq "INSTALL_NODE='0'" "$CONFIG_DIR/vms/app.env"
 grep -Fq "MOUNTS='$TMP_ROOT/share:/share:rw'" "$CONFIG_DIR/vms/app.env"
 if grep -Fq "TMUX_SESSION" "$CONFIG_DIR/vms/app.env"; then
 	echo "unexpected TMUX_SESSION in generated VM config" >&2
@@ -119,12 +139,14 @@ grep -Fq 'template:fedora' "$LOG_FILE"
 grep -Fq -- '--tty=false' "$LOG_FILE"
 grep -Fq 'mountPoint: "/share"' "$STATE_DIR/generated/devvm-app.yaml"
 grep -Fq 'code_dir="/home/dev/code"' "$STATE_DIR/generated/inventory.ini"
+grep -Fq 'devvm-app' "$STATE_DIR/generated/inventory.ini"
+grep -Fq 'install_node="0"' "$STATE_DIR/generated/inventory.ini"
 grep -Fq 'git_user_name=""' "$STATE_DIR/generated/inventory.ini"
 grep -Fq 'ai_tools=""' "$STATE_DIR/generated/inventory.ini"
 
 cat >>"$CONFIG_DIR/config.env" <<'CONFIG'
-AI_LLAMA_MODELS="commit.gguf|https://example.com/commit.gguf"
-AI_TOOLS="claude codex"
+AI_LLAMA_MODELS="commit.gguf|https://example.com/commit.gguf|sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+AI_ALLOW_HTTP_MODEL_URLS="1"
 CONFIG
 
 "$ROOT/bin/devvm" ai create >/dev/null
@@ -146,6 +168,7 @@ grep -Fq "DEVVM_ROLE='ai'" "$CONFIG_DIR/vms/ai.env"
 grep -Fq "PORTS='8080:18080'" "$CONFIG_DIR/vms/ai.env"
 grep -Fq 'devvm_role="ai"' "$STATE_DIR/generated/inventory.ini"
 grep -Fq 'ai_commit_model="commit.gguf"' "$STATE_DIR/generated/inventory.ini"
+grep -Fq 'ai_allow_http_model_urls="1"' "$STATE_DIR/generated/inventory.ini"
 grep -Fq 'guestPort: 8080' "$STATE_DIR/generated/devvm-ai.yaml"
 grep -Fq 'hostPort: 18080' "$STATE_DIR/generated/devvm-ai.yaml"
 grep -Fq 'ssh -F' "$LOG_FILE"
@@ -185,6 +208,7 @@ devvm_assert_completion "app" devvm ""
 devvm_assert_completion "app" devvm enter ""
 devvm_assert_completion "all" devvm stop ""
 devvm_assert_completion "--ports" devvm new app --
+devvm_assert_completion "--node" devvm new app --
 devvm_assert_completion "--yes" devvm delete app ""
 devvm_assert_completion "--no-backup" devvm delete app --
 devvm_assert_completion "--yes" devvm delete app --

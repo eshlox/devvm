@@ -26,7 +26,7 @@ dev_packages_present:
 
 dev_packages_absent: []
 
-node_version: ""
+install_node: "0"
 
 git_user_name: ""
 git_user_email: ""
@@ -38,10 +38,8 @@ chezmoi_apply_args: "--force"
 
 ai_tools: ""
 ai_extra_npm_packages: ""
-ai_llama_cpp_repo: "https://github.com/ggml-org/llama.cpp.git"
-ai_llama_cpp_ref: "master"
 ai_llama_models: ""
-ai_allow_insecure_model_urls: "0"
+ai_allow_http_model_urls: "0"
 ai_llama_models_dir: "/models"
 ai_llama_server_port: "8080"
 ai_llama_ctx_size: "4096"

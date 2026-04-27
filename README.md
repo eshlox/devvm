@@ -72,7 +72,7 @@ cd ~/code/myapp
 
 ```text
 devvm init
-devvm new <name> [--ports "..."] [--mount host:guest[:ro|rw]]
+devvm new <name> [--ports "..."] [--node] [--mount host:guest[:ro|rw]]
 devvm create <name>
 devvm enter <name>
 devvm ssh <name> [command...]
@@ -150,6 +150,13 @@ The default code directory is inside the guest user's home:
 DEVVM_CODE_DIR="$DEVVM_GUEST_HOME/code"
 ```
 
+Node.js and pnpm are opt-in. Set this globally or pass `--node` when creating a VM:
+
+```bash
+DEFAULT_INSTALL_NODE="1"
+devvm new myapp --node
+```
+
 ## Explicit Shares
 
 No host directories are mounted by default. If you need file exchange, use an explicit
@@ -167,6 +174,9 @@ GLOBAL_MOUNTS="$HOME/devvm-share:/share:rw"
 
 Mounts use `host_path:guest_path[:ro|rw]`. DevVM refuses broad host mounts such as
 `$HOME` and protected guest paths such as `~/code`.
+
+See [Explicit Shares](docs/shares.md) and the [Threat Model](docs/threat-model.md) for
+the host mount boundary and its limits.
 
 Generated Lima YAML and Ansible inventory live at:
 
@@ -189,6 +199,11 @@ devvm restore myapp
 By default, backups include `~/code`, SSH keys, GPG data, Git config, selected AI CLI
 state, and shell history. Restores also include secrets by default. Use `--no-secrets`
 on either command to limit the operation to code.
+
+Secret-inclusive backups currently add `~/.ssh`, `~/.gnupg`, `~/.gitconfig`,
+`~/.config/git`, `~/.config/gh`, `~/.config/claude`, `~/.codex`, `~/.claude`, shell
+history, and shell profile files. See the [Threat Model](docs/threat-model.md) for
+backup handling risks.
 
 Backups are written under `~/.local/share/devvm-state/backups/<name>/`. With
 `DEVVM_BACKUP_ENCRYPT="auto"` DevVM encrypts backups with host GPG symmetric encryption
@@ -215,24 +230,26 @@ AI_LLAMA_MODELS="commit.gguf|https://example.com/commit.gguf|sha256:<hex>"
 AI_COMMIT_MODEL="commit.gguf"
 ```
 
+Model entries must include a `sha256:<hex>` checksum. HTTP model URLs require
+`AI_ALLOW_HTTP_MODEL_URLS=1` and still verify the checksum.
+
 Development VMs call the AI VM through:
 
 ```text
 http://host.lima.internal:18080/v1
 ```
 
-Development VMs also install configured AI CLIs:
+DevVM does not install npm-published AI CLIs automatically. Provisioned tools should
+come from Fedora DNF packages; install non-DNF tools through your own dotfiles only when
+you explicitly accept that source.
 
 ```bash
-AI_TOOLS="claude@1.2.3 codex@1.2.3"
+AI_TOOLS=""
 AI_EXTRA_NPM_PACKAGES=""
 ```
 
-`AI_TOOLS` is empty by default. When AI npm tools are configured, DevVM installs Node
-through `fnm` automatically unless the VM already has it.
-
-They include `devvm-ai-commit`, which sends only `git diff --cached` to the llama.cpp
-endpoint and prints a commit message.
+Development VMs include `devvm-ai-commit`, which sends only `git diff --cached` to the
+llama.cpp endpoint and prints a commit message.
 
 ## GPG Commit Signing
 

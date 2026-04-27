@@ -26,9 +26,11 @@ OS package upgrades are opt-in:
 DEVVM_UPGRADE_PACKAGES="1"
 ```
 
-Node is conditional. It is installed through `fnm` only when `NODE_VERSION` is set or
-when configured AI npm packages require it. DevVM writes only the minimal PATH/API
-environment blocks needed for those configured tools.
+Provisioned tools come from Fedora DNF packages. The `chezmoi` role installs the Fedora
+`chezmoi` package. The Node role installs Fedora `nodejs`, `nodejs-npm`, and `pnpm`
+packages only when `INSTALL_NODE=1`. Existing configs that still set `NODE_VERSION`
+continue to opt in for compatibility, but Fedora's enabled repositories select the
+actual Node version.
 
 The `llama_cpp` role only runs for the dedicated AI VM (`DEVVM_ROLE="ai"`). Development
 VMs skip llama.cpp model installation and instead receive helpers that call the AI VM

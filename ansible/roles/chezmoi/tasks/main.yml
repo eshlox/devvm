@@ -11,17 +11,14 @@
     - chezmoi_mode == "user-repo"
     - chezmoi_repo | length == 0
 
-- name: Install chezmoi
-  become: false
-  ansible.builtin.shell: |
-    set -euo pipefail
-    if ! command -v chezmoi >/dev/null 2>&1; then
-      sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
-    fi
-  args:
-    executable: /bin/bash
-    creates: "{{ devvm_home }}/.local/bin/chezmoi"
-  when: chezmoi_mode != "none"
+- name: Install chezmoi from Fedora
+  become: true
+  ansible.builtin.dnf5:
+    name: chezmoi
+    state: present
+  when:
+    - chezmoi_mode != "none"
+    - ansible_facts.os_family == "RedHat"
 
 - name: Ensure chezmoi config directory exists
   become: false

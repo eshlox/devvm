@@ -40,7 +40,7 @@ devvm_ai_write_config_if_missing() {
 		printf 'CPUS=%s\n' "$(devvm_shell_quote "$AI_VM_CPUS")"
 		printf 'MEMORY=%s\n' "$(devvm_shell_quote "$AI_VM_MEMORY")"
 		printf 'DISK=%s\n' "$(devvm_shell_quote "$AI_VM_DISK")"
-		printf 'NODE_VERSION=%s\n' "$(devvm_shell_quote "$DEFAULT_NODE_VERSION")"
+		printf 'INSTALL_NODE=%s\n' "$(devvm_shell_quote "0")"
 		printf 'PORTS=%s\n' "$(devvm_shell_quote "$AI_LLAMA_SERVER_PORT:$AI_LLAMA_HOST_PORT")"
 		printf 'MOUNTS=%s\n' "$(devvm_shell_quote "")"
 	} >"$path"

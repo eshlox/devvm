@@ -14,8 +14,8 @@ devvm ai create
 ```
 
 This creates `~/.config/devvm/vms/ai.env` if missing, then provisions a VM with
-`DEVVM_ROLE="ai"`. The role clones and builds llama.cpp, downloads configured GGUF
-models, and starts `llama-server`.
+`DEVVM_ROLE="ai"`. The role installs Fedora's `llama-cpp` package, downloads configured
+GGUF models, and starts `llama-server`.
 
 Configure models in `~/.config/devvm/config.env`:
 
@@ -30,8 +30,9 @@ Model entries are space-separated and use:
 filename.gguf|https://download-url|sha256:<hex>
 ```
 
-The checksum is optional but strongly recommended. Model URLs must use `https` unless
-`AI_ALLOW_INSECURE_MODEL_URLS=1` is set.
+The checksum is required. Model URLs must use `https` unless
+`AI_ALLOW_HTTP_MODEL_URLS=1` is set; HTTP downloads still require a matching SHA-256
+checksum.
 
 The server listens inside the AI VM on port `8080`, forwarded to macOS on `18080`. Other
 DevVMs reach it at:
@@ -40,27 +41,19 @@ DevVMs reach it at:
 http://host.lima.internal:18080/v1
 ```
 
-## AI CLIs
+## External AI CLIs
 
-Development VMs install configured AI CLIs automatically when `AI_TOOLS` or
-`AI_EXTRA_NPM_PACKAGES` is set:
+DevVM does not install npm-published AI CLIs automatically. Keep `AI_TOOLS` and
+`AI_EXTRA_NPM_PACKAGES` empty unless you intentionally want provisioning to fail as a
+guardrail:
 
 ```bash
-AI_TOOLS="claude@1.2.3 codex@1.2.3"
+AI_TOOLS=""
 AI_EXTRA_NPM_PACKAGES=""
 ```
 
-Both values are empty by default. Configuring either value causes DevVM to install Node
-through `fnm` for that VM.
-
-Supported built-ins:
-
-- `claude` or `claude@version` installs `@anthropic-ai/claude-code`.
-- `codex` or `codex@version` installs `@openai/codex`.
-
-Extra npm packages can be listed in `AI_EXTRA_NPM_PACKAGES`. Pin versions where
-possible. DevVM rejects package tokens that start with `-` to avoid npm option
-injection.
+Install non-DNF tools through your own dotfiles only when you explicitly accept that
+source. DevVM-provisioned tools should come from Fedora packages.
 
 ## Commit Messages
 

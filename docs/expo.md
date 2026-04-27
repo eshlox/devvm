@@ -13,8 +13,8 @@ pnpm install
 pnpm expo start --host lan
 ```
 
-Set `DEFAULT_NODE_VERSION="22"` globally or `NODE_VERSION="22"` in that VM config before
-provisioning if you want DevVM to install Node and pnpm.
+Set `DEFAULT_INSTALL_NODE="1"` globally or pass `--node` when creating the VM if you
+want DevVM to install Fedora's Node and pnpm packages.
 
 Use explicit shares only for narrow file exchange. Do not mount a host project folder as
 the normal workflow.

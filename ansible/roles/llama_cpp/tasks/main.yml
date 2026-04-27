@@ -1,57 +1,13 @@
 ---
-- name: Install llama.cpp build dependencies
+- name: Install llama.cpp from Fedora
   become: true
   ansible.builtin.dnf5:
-    name:
-      - git
-      - cmake
-      - gcc
-      - gcc-c++
-      - make
-      - curl
+    name: llama-cpp
     state: present
   when:
     - devvm_role == "ai"
     - ansible_facts.os_family == "RedHat"
-
-- name: Ensure llama.cpp source parent exists
-  become: false
-  ansible.builtin.file:
-    path: "{{ devvm_home }}/.local/src"
-    state: directory
-    mode: "0755"
-  when: devvm_role == "ai"
-
-- name: Clone llama.cpp
-  become: false
-  ansible.builtin.git:
-    repo: "{{ ai_llama_cpp_repo }}"
-    dest: "{{ devvm_home }}/.local/src/llama.cpp"
-    version: "{{ ai_llama_cpp_ref }}"
-    update: true
-  register: llama_cpp_checkout
-  when: devvm_role == "ai"
-
-- name: Check llama-server binary
-  become: false
-  ansible.builtin.stat:
-    path: "{{ devvm_home }}/.local/src/llama.cpp/build/bin/llama-server"
-  register: llama_server_binary
-  when: devvm_role == "ai"
-
-- name: Build llama-server
-  become: false
-  ansible.builtin.shell: |
-    set -euo pipefail
-    cmake -B build
-    cmake --build build --config Release -t llama-server -j"$(nproc)"
-  args:
-    executable: /bin/bash
-    chdir: "{{ devvm_home }}/.local/src/llama.cpp"
-  register: llama_server_build
-  when:
-    - devvm_role == "ai"
-    - llama_cpp_checkout.changed or not llama_server_binary.stat.exists
+  register: llama_cpp_package
 
 - name: Ensure model directory exists
   become: true
@@ -104,8 +60,8 @@
       case "$url" in
         https://*) ;;
         *)
-          if [ {{ ai_allow_insecure_model_urls | quote }} != "1" ]; then
-            echo "AI model URLs must use https unless AI_ALLOW_INSECURE_MODEL_URLS=1: $url" >&2
+          if [ {{ ai_allow_http_model_urls | quote }} != "1" ]; then
+            echo "AI model URLs must use https unless AI_ALLOW_HTTP_MODEL_URLS=1: $url" >&2
             exit 1
           fi
           ;;
@@ -113,6 +69,8 @@
 
       case "$checksum" in
         "")
+          echo "AI_LLAMA_MODELS entries must include sha256:<hex>: $entry" >&2
+          exit 1
           ;;
         sha256:*)
           expected="${checksum#sha256:}"
@@ -187,8 +145,7 @@
       [Service]
       Type=simple
       User={{ devvm_user }}
-      WorkingDirectory={{ devvm_home }}/.local/src/llama.cpp
-      ExecStart={{ devvm_home }}/.local/src/llama.cpp/build/bin/llama-server --host 127.0.0.1 --port {{ ai_llama_server_port }} -m {{ ai_llama_models_dir }}/{{ ai_commit_model }} -c {{ ai_llama_ctx_size }} {{ ai_llama_extra_args }}
+      ExecStart=/usr/bin/llama-server --host 127.0.0.1 --port {{ ai_llama_server_port }} -m {{ ai_llama_models_dir }}/{{ ai_commit_model }} -c {{ ai_llama_ctx_size }} {{ ai_llama_extra_args }}
       Restart=on-failure
       RestartSec=5
 
@@ -214,5 +171,5 @@
     daemon_reload: true
   when:
     - devvm_role == "ai"
-    - (llama_server_unit.changed | default(false)) or (llama_server_build.changed |
+    - (llama_server_unit.changed | default(false)) or (llama_cpp_package.changed |
       default(false)) or (llama_model_downloads.changed | default(false))

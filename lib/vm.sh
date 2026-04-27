@@ -31,7 +31,8 @@ devvm_load_vm() {
 	CPUS="$DEFAULT_CPUS"
 	MEMORY="$DEFAULT_MEMORY"
 	DISK="$DEFAULT_DISK"
-	NODE_VERSION="$DEFAULT_NODE_VERSION"
+	INSTALL_NODE="$DEFAULT_INSTALL_NODE"
+	NODE_VERSION="${DEFAULT_NODE_VERSION:-}"
 	PORTS="$DEFAULT_PORTS"
 	MOUNTS="$DEFAULT_MOUNTS"
 	DEVVM_ROLE="dev"
@@ -40,18 +41,22 @@ devvm_load_vm() {
 	[ -f "$vm_config" ] || devvm_die "missing VM config: $vm_config; create it with 'devvm new $name'"
 	# shellcheck source=/dev/null
 	source "$vm_config"
+	if ! grep -Eq '^[[:space:]]*INSTALL_NODE=' "$vm_config" && [ -n "${NODE_VERSION:-}" ]; then
+		INSTALL_NODE="1"
+	fi
+	INSTALL_NODE="$(devvm_bool "${INSTALL_NODE:-0}" "INSTALL_NODE")"
 
 	combined_mounts="${GLOBAL_MOUNTS:-} ${MOUNTS:-}"
 	EFFECTIVE_MOUNTS="${combined_mounts#"${combined_mounts%%[![:space:]]*}"}"
 
-	export NAME VM_NAME DISTRO CODE_DIR CPUS MEMORY DISK NODE_VERSION PORTS MOUNTS
+	export NAME VM_NAME DISTRO CODE_DIR CPUS MEMORY DISK INSTALL_NODE NODE_VERSION PORTS MOUNTS
 	export EFFECTIVE_MOUNTS
 	export DEVVM_ROLE
 }
 
 devvm_new() {
-	local name ports cpus memory disk node_version mounts path arg
-	[ "$#" -ge 1 ] || devvm_die "usage: devvm new <name> [--ports \"3000 5173\"] [--mount host:guest[:ro|rw]]"
+	local name ports cpus memory disk install_node mounts path arg
+	[ "$#" -ge 1 ] || devvm_die "usage: devvm new <name> [--ports \"3000 5173\"] [--node] [--mount host:guest[:ro|rw]]"
 
 	name="$1"
 	shift
@@ -62,7 +67,7 @@ devvm_new() {
 	cpus="$DEFAULT_CPUS"
 	memory="$DEFAULT_MEMORY"
 	disk="$DEFAULT_DISK"
-	node_version="$DEFAULT_NODE_VERSION"
+	install_node="$DEFAULT_INSTALL_NODE"
 	mounts="$DEFAULT_MOUNTS"
 
 	while [ "$#" -gt 0 ]; do
@@ -89,9 +94,15 @@ devvm_new() {
 			disk="$1"
 			shift
 			;;
+		--node)
+			install_node="1"
+			;;
+		--no-node)
+			install_node="0"
+			;;
 		--node-version)
 			[ "$#" -gt 0 ] || devvm_die "--node-version requires a value"
-			node_version="$1"
+			install_node="1"
 			shift
 			;;
 		--mount | --share)
@@ -123,7 +134,7 @@ devvm_new() {
 		printf 'CPUS=%s\n' "$(devvm_shell_quote "$cpus")"
 		printf 'MEMORY=%s\n' "$(devvm_shell_quote "$memory")"
 		printf 'DISK=%s\n' "$(devvm_shell_quote "$disk")"
-		printf 'NODE_VERSION=%s\n' "$(devvm_shell_quote "$node_version")"
+		printf 'INSTALL_NODE=%s\n' "$(devvm_shell_quote "$(devvm_bool "$install_node" "INSTALL_NODE")")"
 		printf 'PORTS=%s\n' "$(devvm_shell_quote "$ports")"
 		printf 'MOUNTS=%s\n' "$(devvm_shell_quote "$mounts")"
 	} >"$path"
