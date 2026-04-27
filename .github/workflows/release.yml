@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -33,3 +35,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/release-github.sh
+
+      - name: Attest release assets
+        uses: actions/attest-build-provenance@v4.1.0
+        with:
+          subject-path: dist/release/*

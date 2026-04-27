@@ -39,8 +39,7 @@ devvm_load_vm() {
 
 	vm_config="$(devvm_vm_config_path "$name")"
 	[ -f "$vm_config" ] || devvm_die "missing VM config: $vm_config; create it with 'devvm new $name'"
-	# shellcheck source=/dev/null
-	source "$vm_config"
+	devvm_load_env_file "$vm_config"
 
 	combined_mounts="${GLOBAL_MOUNTS:-} ${MOUNTS:-}"
 	EFFECTIVE_MOUNTS="${combined_mounts#"${combined_mounts%%[![:space:]]*}"}"
@@ -130,7 +129,7 @@ devvm_new() {
 		printf 'DISTRO=%s\n' "$(devvm_shell_quote "$DEFAULT_DISTRO")"
 		printf 'DEVVM_ROLE=%s\n' "$(devvm_shell_quote "dev")"
 		# shellcheck disable=SC2016
-		printf 'CODE_DIR="$DEVVM_CODE_DIR"\n'
+		printf 'CODE_DIR=%s\n' "$(devvm_config_quote '$DEVVM_CODE_DIR')"
 		printf 'CPUS=%s\n' "$(devvm_shell_quote "$cpus")"
 		printf 'MEMORY=%s\n' "$(devvm_shell_quote "$memory")"
 		printf 'DISK=%s\n' "$(devvm_shell_quote "$disk")"
@@ -452,6 +451,17 @@ devvm_key() {
 
 devvm_doctor() {
 	local missing system machine lima_major
+	case "${1:-}" in
+	--security)
+		shift
+		[ "$#" -eq 0 ] || devvm_die "usage: devvm doctor --security"
+		devvm_security_doctor
+		return
+		;;
+	'' | help | -h | --help) ;;
+	*) devvm_die "usage: devvm doctor [--security]" ;;
+	esac
+
 	missing="0"
 	system="$(uname -s)"
 	machine="$(uname -m)"

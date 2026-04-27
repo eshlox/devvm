@@ -8,6 +8,7 @@ devvm_shell_files() {
 		lib/backup.sh \
 		lib/config.sh \
 		lib/update.sh \
+		lib/security.sh \
 		lib/completion.sh \
 		lib/ai.sh \
 		lib/gpg.sh \
@@ -23,6 +24,7 @@ devvm_shell_files() {
 		scripts/prepare-release.sh \
 		scripts/release-github.sh \
 		scripts/test.sh \
+		tests/gpg-integration.sh \
 		tests/shellcheck.sh \
 		tests/smoke.sh
 }

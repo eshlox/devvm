@@ -105,19 +105,86 @@ mkdir -p "$HOME"
 
 "$ROOT/bin/devvm" init >/dev/null
 
+BAD_CONFIG="$TMP_ROOT/bad-config"
+mkdir -p "$BAD_CONFIG/vms"
+cat >"$BAD_CONFIG/config.env" <<'CONFIG'
+VM_PREFIX="$(touch /tmp/devvm-should-not-run)"
+CONFIG
+if DEVVM_CONFIG="$BAD_CONFIG" "$ROOT/bin/devvm" doctor >/dev/null 2>"$TMP_ROOT/bad-config.err"; then
+	echo "unsafe config unexpectedly loaded" >&2
+	exit 1
+fi
+grep -Fq 'unsupported shell syntax' "$TMP_ROOT/bad-config.err"
+
 DEVVM_CONFIG="$TMP_ROOT/install-config" "$ROOT/install.sh" \
 	--prefix "$TMP_ROOT/install-bin" \
 	--install-dir "$TMP_ROOT/install-root" \
 	--repo "https://example.invalid/eshlox/devenv.git" >/dev/null
+cat >>"$TMP_ROOT/install-config/config.env" <<'CONFIG'
+DEVVM_RELEASE_SIGNER_FINGERPRINTS="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+CONFIG
 grep -Fq "DEVVM_INSTALL_MODE='copy'" "$TMP_ROOT/install-root/install.env"
 [ -L "$TMP_ROOT/install-root/current" ]
-[ -L "$TMP_ROOT/install-bin/devvm" ]
-env -u DEVVM_CORE "$TMP_ROOT/install-bin/devvm" self-update --help | grep -Fq 'copied installs'
+[ -x "$TMP_ROOT/install-bin/devvm" ]
+grep -Fq '# DEVVM MANAGED LAUNCHER' "$TMP_ROOT/install-bin/devvm"
+env -u DEVVM_CORE "$TMP_ROOT/install-bin/devvm" self-update --help >"$TMP_ROOT/self-update-help.out"
+grep -Fq 'copied installs' "$TMP_ROOT/self-update-help.out"
+DEVVM_CONFIG="$TMP_ROOT/install-config" env -u DEVVM_CORE "$TMP_ROOT/install-bin/devvm" verify-install >"$TMP_ROOT/verify-install.out"
+grep -Fq 'install mode: copy' "$TMP_ROOT/verify-install.out"
+DEVVM_CONFIG="$TMP_ROOT/install-config" env -u DEVVM_CORE "$TMP_ROOT/install-bin/devvm" doctor --security >"$TMP_ROOT/security-doctor.out"
+grep -Fq 'security checks' "$TMP_ROOT/security-doctor.out"
+cat >"$MOCK_BIN/git" <<'MOCK'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if printf '%s\n' "$*" | grep -Fq 'ls-remote'; then
+	printf '1111111111111111111111111111111111111111\trefs/tags/v9.9.9\n'
+	exit 0
+fi
+
+printf 'unexpected git command: %s\n' "$*" >&2
+exit 1
+MOCK
+chmod +x "$MOCK_BIN/git"
+DEVVM_UPDATE_CHECK_FORCE=1 DEVVM_CONFIG="$TMP_ROOT/install-config" env -u DEVVM_CORE \
+	"$TMP_ROOT/install-bin/devvm" ai endpoint >/dev/null 2>"$TMP_ROOT/update-check.err"
+grep -Fq 'update available: DevVM v9.9.9' "$TMP_ROOT/update-check.err"
+grep -Fq "DEVVM_UPDATE_CHECK_LATEST_VERSION='v9.9.9'" "$STATE_DIR/update-check.env"
 if env -u DEVVM_CORE "$TMP_ROOT/install-bin/devvm" self-update 2>"$TMP_ROOT/self-update.err"; then
 	echo "copied self-update without --version unexpectedly succeeded" >&2
 	exit 1
 fi
 grep -Fq 'copied installs require' "$TMP_ROOT/self-update.err"
+
+DEVVM_CONFIG="$TMP_ROOT/dev-config" DEVVM_STATE="$TMP_ROOT/dev-state" "$ROOT/install.sh" \
+	--symlink \
+	--name devvm-dev \
+	--prefix "$TMP_ROOT/dev-bin" \
+	--install-dir "$TMP_ROOT/dev-install" \
+	--config-dir "$TMP_ROOT/dev-config" \
+	--state-dir "$TMP_ROOT/dev-state" \
+	--vm-prefix devvm-dev >/dev/null
+[ -x "$TMP_ROOT/dev-bin/devvm-dev" ]
+env -u DEVVM_CONFIG -u DEVVM_STATE -u DEVVM_CORE "$TMP_ROOT/dev-bin/devvm-dev" init >/dev/null
+grep -Fq "VM_PREFIX='devvm-dev'" "$TMP_ROOT/dev-config/config.env"
+[ -d "$TMP_ROOT/dev-state" ]
+
+(
+	DEVVM_CORE="$TMP_ROOT/homebrew/Cellar/devvm/0.1.0/libexec"
+	export DEVVM_CORE
+	# shellcheck source=/dev/null
+	source "$ROOT/lib/util.sh"
+	# shellcheck source=/dev/null
+	source "$ROOT/lib/update.sh"
+	devvm_load_install_metadata
+	[ "$DEVVM_INSTALL_MODE" = "homebrew" ]
+	[ "$DEVVM_INSTALL_VERSION" = "0.1.0" ]
+	if (devvm_self_update) 2>"$TMP_ROOT/homebrew-self-update.err"; then
+		echo "Homebrew self-update unexpectedly succeeded" >&2
+		exit 1
+	fi
+	grep -Fq 'brew update && brew upgrade devvm' "$TMP_ROOT/homebrew-self-update.err"
+)
 
 cat >"$TMP_ROOT/global-setup.sh" <<'SCRIPT'
 #!/usr/bin/env bash
@@ -234,7 +301,9 @@ devvm_assert_completion "gpg" devvm ""
 devvm_assert_completion "ai" devvm ""
 devvm_assert_completion "create" devvm ai ""
 devvm_assert_completion "--lines" devvm ai logs --
+devvm_assert_completion "--security" devvm doctor --
 devvm_assert_completion "--version" devvm self-update --
+devvm_assert_completion "--no-verify-signer" devvm self-update --
 devvm_assert_completion "create-subkey" devvm gpg ""
 devvm_assert_completion "create-subkey" devvm gpg c
 devvm_assert_completion "app" devvm gpg install ""

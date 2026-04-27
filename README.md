@@ -47,10 +47,10 @@ isolate each project from macOS and from other projects, then get out of the way
 - Lima 2.x or newer
 - OpenSSH client
 
-Install common host dependencies with Homebrew:
+Install with Homebrew; the formula depends on Lima:
 
 ```bash
-brew install lima
+brew install eshlox/devvm/devvm
 ```
 
 `shellcheck` and `shfmt` are only needed for contributing to this repo, not for daily VM
@@ -58,39 +58,51 @@ usage.
 
 ## Install
 
-Clone and inspect the repo, then run the installer:
+Recommended stable install:
+
+```bash
+brew install eshlox/devvm/devvm
+```
+
+Homebrew's two-part name is the tap, not the formula. If you want a shorter install
+command after tapping:
+
+```bash
+brew tap eshlox/devvm
+brew install devvm
+```
+
+Updates are managed by Homebrew:
+
+```bash
+brew update
+brew upgrade devvm
+```
+
+For development on DevVM itself, clone the repo and install a separate development
+command. This keeps test VMs away from your real `devvm-*` VMs:
 
 ```bash
 git clone https://github.com/eshlox/devenv.git
 cd devenv
-./install.sh
+./install.sh --symlink \
+  --name devvm-dev \
+  --prefix "$HOME/.local/bin" \
+  --install-dir "$HOME/.local/share/devvm-dev-install" \
+  --config-dir "$HOME/.config/devvm-dev" \
+  --state-dir "$HOME/.local/share/devvm-dev-state" \
+  --vm-prefix devvm-dev
 ```
 
-The default installer copies DevVM into a versioned directory and links the command:
-
-```text
-~/.local/share/devvm/versions/<version>/
-~/.local/share/devvm/current -> versions/<version>
-~/.local/bin/devvm -> ~/.local/share/devvm/current/bin/devvm
-```
-
-It creates `~/.config/devvm` and copies the default config only if it does not already
-exist. The installer refuses to replace an unrelated existing `devvm` command unless
-you pass `--force`.
-
-For development on the DevVM checkout itself, use a source symlink install:
+Then use `devvm-dev` for testing:
 
 ```bash
-./install.sh --symlink
+devvm-dev init
+devvm-dev new scratch
 ```
 
-Useful options:
-
-```text
-./install.sh --prefix ~/.local/bin --install-dir ~/.local/share/devvm
-./install.sh --dry-run
-./install.sh --force
-```
+Manual copied installs are kept for local testing and fallback use, but Homebrew is the
+normal production install path. See [Homebrew Packaging](docs/homebrew.md).
 
 ## Workflow
 
@@ -138,10 +150,11 @@ devvm backups [name]
 devvm restore <name> [backup-file]
 devvm key <name>
 devvm status
-devvm doctor
+devvm doctor [--security]
 devvm ai create|update|enter|key|endpoint|status|logs
 devvm gpg create-subkey|install|list|export-public
 devvm completion bash|zsh
+devvm verify-install
 devvm self-update [--version v0.1.0|--rollback]
 ```
 
@@ -184,6 +197,10 @@ VM configs live at:
 This directory is intentionally suitable for a user-owned config repo. Put machine-local
 secrets or temporary overrides in `local.env` and gitignore that file in your config
 repo.
+
+Config files are parsed as data, not sourced as shell. Use simple `KEY=value` lines,
+comments, and quoted strings. Put executable setup logic in `GLOBAL_SETUP_SCRIPTS` or
+`SETUP_SCRIPTS`, not in config files.
 
 Set `GIT_USER_NAME` and `GIT_USER_EMAIL` there if you want DevVM to configure Git
 identity.
@@ -299,10 +316,10 @@ history, and shell profile files. See the [Threat Model](docs/threat-model.md) f
 backup handling risks.
 
 Backups are written under `~/.local/share/devvm-state/backups/<name>/`. With
-`DEVVM_BACKUP_ENCRYPT="auto"` DevVM encrypts backups with host GPG symmetric encryption
-when `gpg` is available, which may prompt for a backup passphrase; otherwise it writes a
-plaintext archive and warns when secrets are included. Use `--encrypt` to require GPG
-encryption or `--no-encrypt` to explicitly write plaintext.
+`DEVVM_BACKUP_ENCRYPT="1"` DevVM requires host GPG symmetric encryption for backups.
+Use `--no-secrets` when you intentionally want a plaintext code-only backup. Plaintext
+secret-inclusive backups are refused unless you explicitly set
+`DEVVM_BACKUP_ALLOW_PLAINTEXT_SECRETS="1"`.
 
 `devvm delete` automatically creates a backup before deleting a VM. `devvm rebuild`
 automatically backs up, recreates the VM, and restores that backup. Use `--no-backup` or
@@ -340,21 +357,29 @@ GitHub.
 
 ## Updating DevVM
 
-Source symlink installs update the checkout:
+Homebrew installs update with Homebrew:
 
 ```bash
-devvm self-update
+brew update
+brew upgrade devvm
 ```
 
-Copied installs are updated by installing a specific release tag:
+Source symlink installs are for development and update the checkout:
+
+```bash
+devvm-dev self-update
+```
+
+Manual copied installs are updated by installing a specific release tag:
 
 ```bash
 devvm self-update --version v0.1.0
 ```
 
 For copied installs, DevVM fetches the tag from the recorded Git remote, verifies it
-with `git tag -v`, copies it into `~/.local/share/devvm/versions/<version>`, and then
-switches the `current` symlink. Use signed release tags for normal releases.
+with `git verify-tag`, checks the signer against `DEVVM_RELEASE_SIGNER_FINGERPRINTS`,
+copies it into `~/.local/share/devvm/versions/<version>`, writes an install manifest,
+and then switches the `current` symlink. Use signed release tags for normal releases.
 
 Rollback switches back to the previously active copied version:
 
@@ -363,6 +388,24 @@ devvm self-update --rollback
 ```
 
 If you intentionally need to test an unsigned local tag, pass `--no-verify-tag`.
+
+During interactive use, copied installs check the release remote periodically and print
+a notice when a newer stable `vX.Y.Z` tag exists. The check uses `git ls-remote` only;
+it does not execute remote code or install anything. Configure it with:
+
+```bash
+DEVVM_UPDATE_CHECK_ENABLED="1"
+DEVVM_UPDATE_CHECK_INTERVAL_SECONDS="86400"
+```
+
+Verify the active install:
+
+```bash
+devvm verify-install
+devvm doctor --security
+```
+
+See [Security Guide](docs/security.md) and [Release Process](docs/release.md).
 
 ## Development
 
@@ -384,14 +427,20 @@ The check suite is shell-native:
 - `scripts/lint.sh` runs ShellCheck.
 - `scripts/test.sh` runs Bash syntax checks and the smoke test.
 
+The smoke test uses mocked GPG commands. To exercise real GPG key and subkey parsing:
+
+```bash
+DEVVM_RUN_GPG_INTEGRATION=1 bash tests/gpg-integration.sh
+```
+
 Format shell files:
 
 ```bash
 bash scripts/format.sh
 ```
 
-Releases are tag-driven. Update `CHANGELOG.md`, commit the release notes, then push an
-annotated tag:
+Releases are tag-driven. Update `CHANGELOG.md`, commit the release notes, then push a
+signed tag:
 
 ```bash
 git add CHANGELOG.md
