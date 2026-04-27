@@ -87,10 +87,30 @@ devvm key <name>
 devvm status
 devvm doctor
 devvm ai create|update|enter|key
+devvm completion bash|zsh
 devvm self-update
 ```
 
 `devvm <name>` is a shortcut for `devvm enter <name>`.
+
+## Shell Completion
+
+Completion includes commands, command options, AI subcommands, and existing VM names from
+`~/.config/devvm/vms`.
+
+For Zsh:
+
+```bash
+source <(devvm completion zsh)
+```
+
+For Bash:
+
+```bash
+source <(devvm completion bash)
+```
+
+Add the matching line to your shell startup file to keep completion enabled.
 
 ## Configuration
 

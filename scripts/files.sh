@@ -8,6 +8,7 @@ devvm_shell_files() {
 		lib/ai.sh \
 		lib/ansible.sh \
 		lib/config.sh \
+		lib/completion.sh \
 		lib/lima.sh \
 		lib/util.sh \
 		lib/vm.sh \
