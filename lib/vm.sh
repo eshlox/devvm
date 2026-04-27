@@ -198,15 +198,24 @@ devvm_stop() {
 }
 
 devvm_delete() {
-	local name yes
-	[ "$#" -ge 1 ] || devvm_die "usage: devvm delete <name> [--yes]"
+	local name yes backup include_secrets encrypt_mode prompt
+	[ "$#" -ge 1 ] || devvm_die "usage: devvm delete <name> [--yes] [--backup|--no-backup] [--include-secrets|--no-secrets] [--encrypt|--no-encrypt]"
 	name="$1"
 	shift
 	yes="0"
+	backup="1"
+	include_secrets=""
+	encrypt_mode=""
 
 	while [ "$#" -gt 0 ]; do
 		case "$1" in
 		--yes | -y) yes="1" ;;
+		--backup) backup="1" ;;
+		--no-backup) backup="0" ;;
+		--include-secrets) include_secrets="1" ;;
+		--no-secrets) include_secrets="0" ;;
+		--encrypt) encrypt_mode="1" ;;
+		--no-encrypt) encrypt_mode="0" ;;
 		*) devvm_die "unknown option: $1" ;;
 		esac
 		shift
@@ -220,7 +229,16 @@ devvm_delete() {
 		return 0
 	fi
 
-	if [ "$yes" = "1" ] || devvm_confirm "Delete Lima instance $VM_NAME? VM-local repos, keys, shell history, and GPG data will be lost unless backed up."; then
+	if [ "$backup" = "1" ]; then
+		prompt="Back up and delete Lima instance $VM_NAME?"
+	else
+		prompt="Delete Lima instance $VM_NAME without backup? VM-local repos, keys, shell history, and GPG data will be lost."
+	fi
+
+	if [ "$yes" = "1" ] || devvm_confirm "$prompt"; then
+		if [ "$backup" = "1" ]; then
+			devvm_backup_create "$name" "$include_secrets" "$encrypt_mode" ""
+		fi
 		limactl delete --force "$VM_NAME"
 	else
 		devvm_die "delete cancelled"
@@ -287,34 +305,79 @@ devvm_update_all() {
 }
 
 devvm_rebuild() {
-	local name yes
-	[ "$#" -ge 1 ] || devvm_die "usage: devvm rebuild <name> [--yes]"
+	local name yes backup restore include_secrets encrypt_mode backup_file prompt
+	[ "$#" -ge 1 ] || devvm_die "usage: devvm rebuild <name> [--yes] [--backup|--no-backup] [--restore|--no-restore] [--include-secrets|--no-secrets] [--encrypt|--no-encrypt]"
 	name="$1"
 	shift
 	yes="0"
+	backup="1"
+	restore="1"
+	include_secrets=""
+	encrypt_mode=""
+	backup_file=""
 	while [ "$#" -gt 0 ]; do
 		case "$1" in
 		--yes | -y) yes="1" ;;
+		--backup) backup="1" ;;
+		--no-backup) backup="0" ;;
+		--restore) restore="1" ;;
+		--no-restore) restore="0" ;;
+		--include-secrets) include_secrets="1" ;;
+		--no-secrets) include_secrets="0" ;;
+		--encrypt) encrypt_mode="1" ;;
+		--no-encrypt) encrypt_mode="0" ;;
 		*) devvm_die "unknown option: $1" ;;
 		esac
 		shift
 	done
 
-	if [ "$yes" = "1" ]; then
-		devvm_delete "$name" --yes
+	devvm_require_command limactl
+	devvm_load_vm "$name"
+	if devvm_lima_instance_exists "$VM_NAME"; then
+		if [ "$backup" = "1" ]; then
+			prompt="Back up, rebuild, and restore Lima instance $VM_NAME?"
+		else
+			prompt="Rebuild Lima instance $VM_NAME without backup? VM-local repos, keys, shell history, and GPG data will be lost."
+		fi
+		if [ "$yes" = "1" ] || devvm_confirm "$prompt"; then
+			if [ "$backup" = "1" ]; then
+				devvm_backup_create "$name" "$include_secrets" "$encrypt_mode" ""
+				backup_file="$DEVVM_LAST_BACKUP_FILE"
+			fi
+			devvm_delete "$name" --yes --no-backup
+		else
+			devvm_die "rebuild cancelled"
+		fi
 	else
-		devvm_delete "$name"
+		devvm_log "Lima instance does not exist: $VM_NAME"
 	fi
+
 	devvm_create "$name"
+	if [ "$restore" = "1" ] && [ -n "$backup_file" ]; then
+		devvm_restore_file "$name" "$backup_file" "$include_secrets"
+	fi
 }
 
 devvm_rebuild_all() {
-	local vm yes found
+	local vm yes found backup restore include_secrets encrypt_mode
+	local -a rebuild_args
 	yes="0"
 	found="0"
+	backup="1"
+	restore="1"
+	include_secrets=""
+	encrypt_mode=""
 	while [ "$#" -gt 0 ]; do
 		case "$1" in
 		--yes | -y) yes="1" ;;
+		--backup) backup="1" ;;
+		--no-backup) backup="0" ;;
+		--restore) restore="1" ;;
+		--no-restore) restore="0" ;;
+		--include-secrets) include_secrets="1" ;;
+		--no-secrets) include_secrets="0" ;;
+		--encrypt) encrypt_mode="1" ;;
+		--no-encrypt) encrypt_mode="0" ;;
 		*) devvm_die "unknown option: $1" ;;
 		esac
 		shift
@@ -322,11 +385,31 @@ devvm_rebuild_all() {
 
 	for vm in $(devvm_vm_names); do
 		found="1"
+		rebuild_args=()
 		if [ "$yes" = "1" ]; then
-			devvm_rebuild "$vm" --yes
-		else
-			devvm_rebuild "$vm"
+			rebuild_args+=(--yes)
 		fi
+		if [ "$backup" = "1" ]; then
+			rebuild_args+=(--backup)
+		else
+			rebuild_args+=(--no-backup)
+		fi
+		if [ "$restore" = "1" ]; then
+			rebuild_args+=(--restore)
+		else
+			rebuild_args+=(--no-restore)
+		fi
+		if [ "$include_secrets" = "1" ]; then
+			rebuild_args+=(--include-secrets)
+		elif [ "$include_secrets" = "0" ]; then
+			rebuild_args+=(--no-secrets)
+		fi
+		if [ "$encrypt_mode" = "1" ]; then
+			rebuild_args+=(--encrypt)
+		elif [ "$encrypt_mode" = "0" ]; then
+			rebuild_args+=(--no-encrypt)
+		fi
+		devvm_rebuild "$vm" "${rebuild_args[@]}"
 	done
 	[ "$found" = "1" ] || devvm_die "no VM configs found in $DEVVM_CONFIG/vms"
 }

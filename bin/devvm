@@ -31,6 +31,8 @@ source "$DEVVM_CORE/lib/lima.sh"
 source "$DEVVM_CORE/lib/ansible.sh"
 # shellcheck source=../lib/vm.sh
 source "$DEVVM_CORE/lib/vm.sh"
+# shellcheck source=../lib/backup.sh
+source "$DEVVM_CORE/lib/backup.sh"
 # shellcheck source=../lib/ai.sh
 source "$DEVVM_CORE/lib/ai.sh"
 # shellcheck source=../lib/gpg.sh
@@ -53,6 +55,9 @@ Usage:
   devvm update-all
   devvm rebuild <name> [--yes]
   devvm rebuild-all [--yes]
+  devvm backup <name>
+  devvm backups [name]
+  devvm restore <name> [backup-file]
   devvm key <name>
   devvm status
   devvm doctor
@@ -112,6 +117,15 @@ devvm_main() {
 		;;
 	rebuild-all)
 		devvm_rebuild_all "$@"
+		;;
+	backup)
+		devvm_backup "$@"
+		;;
+	backups)
+		devvm_backups "$@"
+		;;
+	restore)
+		devvm_restore "$@"
 		;;
 	key)
 		devvm_key "$@"

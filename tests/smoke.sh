@@ -42,6 +42,14 @@ case "${1:-}" in
   start)
     printf 'limactl start %q\n' "${2:-}" >>"$DEVVM_TEST_LOG"
     ;;
+  delete)
+    printf 'limactl delete' >>"$DEVVM_TEST_LOG"
+    shift
+    for arg in "$@"; do
+      printf ' %q' "$arg" >>"$DEVVM_TEST_LOG"
+    done
+    printf '\n' >>"$DEVVM_TEST_LOG"
+    ;;
   *)
     printf 'unexpected limactl command: %s\n' "$*" >&2
     exit 1
@@ -58,6 +66,10 @@ for arg in "$@"; do
   printf ' %q' "$arg" >>"$DEVVM_TEST_LOG"
 done
 printf '\n' >>"$DEVVM_TEST_LOG"
+if printf '%s\n' "$*" | grep -Fq 'devvm-backup'; then
+  printf 'backup-archive'
+  exit 0
+fi
 cat >"$DEVVM_TEST_SSH_STDIN"
 MOCK
 
@@ -121,6 +133,14 @@ mkdir -p "$HOME/.lima/devvm-app"
 touch "$HOME/.lima/devvm-app/ssh.config"
 printf 'secret-subkey-bundle' >"$TMP_ROOT/subkey.asc"
 "$ROOT/bin/devvm" gpg install app "$TMP_ROOT/subkey.asc" --signing-key ABCDEF >/dev/null
+grep -Fq 'secret-subkey-bundle' "$DEVVM_TEST_SSH_STDIN"
+"$ROOT/bin/devvm" backup app --no-encrypt --no-secrets >/dev/null
+BACKUP_FILE="$(find "$STATE_DIR/backups/app" -type f -name '*.tar.gz' -print | sort | tail -n 1)"
+[ -n "$BACKUP_FILE" ]
+grep -Fq 'backup-archive' "$BACKUP_FILE"
+"$ROOT/bin/devvm" backups app | grep -Fq "$BACKUP_FILE"
+"$ROOT/bin/devvm" restore app "$BACKUP_FILE" --no-secrets >/dev/null
+"$ROOT/bin/devvm" delete app --yes --no-encrypt --no-secrets >/dev/null
 
 grep -Fq "DEVVM_ROLE='ai'" "$CONFIG_DIR/vms/ai.env"
 grep -Fq "PORTS='8080:18080'" "$CONFIG_DIR/vms/ai.env"
@@ -130,7 +150,9 @@ grep -Fq 'guestPort: 8080' "$STATE_DIR/generated/devvm-ai.yaml"
 grep -Fq 'hostPort: 18080' "$STATE_DIR/generated/devvm-ai.yaml"
 grep -Fq 'ssh -F' "$LOG_FILE"
 grep -Fq 'lima-devvm-app' "$LOG_FILE"
-grep -Fq 'secret-subkey-bundle' "$DEVVM_TEST_SSH_STDIN"
+grep -Fq 'devvm-backup' "$LOG_FILE"
+grep -Fq 'devvm-restore' "$LOG_FILE"
+grep -Fq 'limactl delete --force devvm-app' "$LOG_FILE"
 
 COMPLETION_FILE="$TMP_ROOT/devvm-completion.bash"
 "$ROOT/bin/devvm" completion bash >"$COMPLETION_FILE"
@@ -164,7 +186,13 @@ devvm_assert_completion "app" devvm enter ""
 devvm_assert_completion "all" devvm stop ""
 devvm_assert_completion "--ports" devvm new app --
 devvm_assert_completion "--yes" devvm delete app ""
+devvm_assert_completion "--no-backup" devvm delete app --
 devvm_assert_completion "--yes" devvm delete app --
+devvm_assert_completion "--no-restore" devvm rebuild app --
+devvm_assert_completion "app" devvm backup ""
+devvm_assert_completion "--no-encrypt" devvm backup app --
+devvm_assert_completion "app" devvm restore ""
+devvm_assert_completion "--no-secrets" devvm restore app backup.tar.gz --
 devvm_assert_completion "create" devvm ai ""
 devvm_assert_completion "gpg" devvm ""
 devvm_assert_completion "create-subkey" devvm gpg ""

@@ -49,7 +49,7 @@ _devvm_completion_reply_vms() {
 }
 
 _devvm_completion() {
-	local cur prev cmd commands new_options yes_options ai_commands completion_shells
+	local cur prev cmd commands new_options yes_options delete_options rebuild_options backup_options restore_options ai_commands completion_shells
 	local gpg_commands gpg_create_options gpg_install_options gpg_export_public_options
 	COMPREPLY=()
 
@@ -57,9 +57,13 @@ _devvm_completion() {
 	prev="${COMP_WORDS[$((COMP_CWORD - 1))]}"
 	cmd="${COMP_WORDS[1]:-}"
 
-	commands="help init new create enter ssh start stop delete rm update update-all rebuild rebuild-all key status list doctor ai gpg completion self-update"
+	commands="help init new create enter ssh start stop delete rm update update-all rebuild rebuild-all backup backups restore key status list doctor ai gpg completion self-update"
 	new_options="--ports --cpus --memory --disk --node-version --mount --share"
 	yes_options="--yes -y"
+	delete_options="$yes_options --backup --no-backup --include-secrets --no-secrets --encrypt --no-encrypt"
+	rebuild_options="$delete_options --restore --no-restore"
+	backup_options="--include-secrets --no-secrets --encrypt --no-encrypt --output"
+	restore_options="--include-secrets --no-secrets"
 	ai_commands="create update enter key help -h --help"
 	gpg_commands="create-subkey install list export-public help -h --help"
 	gpg_create_options="--label --expire --algo --output --force"
@@ -98,16 +102,47 @@ _devvm_completion() {
 			_devvm_completion_reply_vms "$cur" "1"
 		fi
 		;;
-	delete | rm | rebuild)
+	delete | rm)
 		if [[ "$cur" == -* ]] || [ "$COMP_CWORD" -gt 2 ]; then
-			_devvm_completion_reply_words "$cur" "$yes_options"
+			_devvm_completion_reply_words "$cur" "$delete_options"
+		elif [ "$COMP_CWORD" -eq 2 ]; then
+			_devvm_completion_reply_vms "$cur"
+		fi
+		;;
+	rebuild)
+		if [[ "$cur" == -* ]] || [ "$COMP_CWORD" -gt 2 ]; then
+			_devvm_completion_reply_words "$cur" "$rebuild_options"
 		elif [ "$COMP_CWORD" -eq 2 ]; then
 			_devvm_completion_reply_vms "$cur"
 		fi
 		;;
 	rebuild-all)
 		if [[ "$cur" == -* ]] || [ "$COMP_CWORD" -gt 1 ]; then
-			_devvm_completion_reply_words "$cur" "$yes_options"
+			_devvm_completion_reply_words "$cur" "$rebuild_options"
+		fi
+		;;
+	backup)
+		case "$prev" in
+		--output)
+			return 0
+			;;
+		esac
+		if [ "$COMP_CWORD" -eq 2 ]; then
+			_devvm_completion_reply_vms "$cur"
+		elif [[ "$cur" == -* ]] || [ "$COMP_CWORD" -gt 2 ]; then
+			_devvm_completion_reply_words "$cur" "$backup_options"
+		fi
+		;;
+	backups)
+		if [ "$COMP_CWORD" -eq 2 ]; then
+			_devvm_completion_reply_vms "$cur"
+		fi
+		;;
+	restore)
+		if [ "$COMP_CWORD" -eq 2 ]; then
+			_devvm_completion_reply_vms "$cur"
+		elif [[ "$cur" == -* ]] || [ "$COMP_CWORD" -gt 3 ]; then
+			_devvm_completion_reply_words "$cur" "$restore_options"
 		fi
 		;;
 	ai)
@@ -209,6 +244,9 @@ _devvm_top_level() {
 		"update-all:run provisioning on all VMs"
 		"rebuild:delete and recreate a VM"
 		"rebuild-all:delete and recreate all VMs"
+		"backup:create a VM backup archive"
+		"backups:list VM backup archives"
+		"restore:restore a VM backup archive"
 		"key:print a VM public SSH key"
 		"status:show Lima VM status"
 		"list:show Lima VM status"
@@ -252,13 +290,60 @@ _devvm() {
 	stop)
 		_arguments "2:VM name:_devvm_vm_names_or_all"
 		;;
-	delete | rm | rebuild)
+	delete | rm)
 		_arguments \
 			"(-y --yes)"{-y,--yes}"[skip confirmation]" \
+			"--backup[create a backup before deleting]" \
+			"--no-backup[delete without creating a backup]" \
+			"--include-secrets[include VM secrets in backup]" \
+			"--no-secrets[exclude VM secrets from backup]" \
+			"--encrypt[encrypt backup with GPG]" \
+			"--no-encrypt[write plaintext backup]" \
+			"2:VM name:_devvm_vm_names"
+		;;
+	rebuild)
+		_arguments \
+			"(-y --yes)"{-y,--yes}"[skip confirmation]" \
+			"--backup[create a backup before deleting]" \
+			"--no-backup[delete without creating a backup]" \
+			"--include-secrets[include VM secrets in backup]" \
+			"--no-secrets[exclude VM secrets from backup]" \
+			"--encrypt[encrypt backup with GPG]" \
+			"--no-encrypt[write plaintext backup]" \
+			"--restore[restore backup after rebuild]" \
+			"--no-restore[do not restore after rebuild]" \
 			"2:VM name:_devvm_vm_names"
 		;;
 	rebuild-all)
-		_arguments "(-y --yes)"{-y,--yes}"[skip confirmation]"
+		_arguments \
+			"(-y --yes)"{-y,--yes}"[skip confirmation]" \
+			"--backup[create backups before deleting]" \
+			"--no-backup[rebuild without backups]" \
+			"--include-secrets[include VM secrets in backups]" \
+			"--no-secrets[exclude VM secrets from backups]" \
+			"--encrypt[encrypt backups with GPG]" \
+			"--no-encrypt[write plaintext backups]" \
+			"--restore[restore backups after rebuild]" \
+			"--no-restore[do not restore after rebuild]"
+		;;
+	backup)
+		_arguments \
+			"2:VM name:_devvm_vm_names" \
+			"--include-secrets[include VM secrets]" \
+			"--no-secrets[exclude VM secrets]" \
+			"--encrypt[encrypt with GPG]" \
+			"--no-encrypt[write plaintext archive]" \
+			"--output[set output file or directory]:path:_files"
+		;;
+	backups)
+		_arguments "2:VM name:_devvm_vm_names"
+		;;
+	restore)
+		_arguments \
+			"2:VM name:_devvm_vm_names" \
+			"3:backup archive:_files" \
+			"--include-secrets[restore VM secrets]" \
+			"--no-secrets[restore only code]"
 		;;
 	ai)
 		_arguments "2:AI command:((create\\:create update\\:update enter\\:enter key\\:key help\\:help))"
