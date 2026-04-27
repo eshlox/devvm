@@ -9,6 +9,7 @@ devvm_shell_files() {
 		lib/ansible.sh \
 		lib/config.sh \
 		lib/completion.sh \
+		lib/gpg.sh \
 		lib/lima.sh \
 		lib/util.sh \
 		lib/vm.sh \

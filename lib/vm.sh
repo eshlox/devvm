@@ -386,6 +386,11 @@ devvm_doctor() {
 	else
 		devvm_warn "missing optional: shellcheck"
 	fi
+	if devvm_command_exists gpg; then
+		devvm_log "ok: gpg"
+	else
+		devvm_warn "missing optional: gpg (needed for devvm gpg commands)"
+	fi
 
 	if [ "$system" != "Darwin" ]; then
 		devvm_warn "DevVM is designed primarily for macOS"

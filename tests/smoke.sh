@@ -18,6 +18,9 @@ set -euo pipefail
 
 case "${1:-}" in
   list)
+    if [ -n "${DEVVM_TEST_LIMA_LIST:-}" ] && [ -f "$DEVVM_TEST_LIMA_LIST" ]; then
+      cat "$DEVVM_TEST_LIMA_LIST"
+    fi
     exit 0
     ;;
   template)
@@ -46,6 +49,25 @@ case "${1:-}" in
 esac
 MOCK
 
+cat >"$MOCK_BIN/ssh" <<'MOCK'
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf 'ssh' >>"$DEVVM_TEST_LOG"
+for arg in "$@"; do
+  printf ' %q' "$arg" >>"$DEVVM_TEST_LOG"
+done
+printf '\n' >>"$DEVVM_TEST_LOG"
+cat >"$DEVVM_TEST_SSH_STDIN"
+MOCK
+
+cat >"$MOCK_BIN/gpg" <<'MOCK'
+#!/usr/bin/env bash
+set -euo pipefail
+
+exit 0
+MOCK
+
 cat >"$MOCK_BIN/ansible-playbook" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -57,18 +79,23 @@ done
 printf '\n' >>"$DEVVM_TEST_LOG"
 MOCK
 
-chmod +x "$MOCK_BIN/limactl" "$MOCK_BIN/ansible-playbook"
+chmod +x "$MOCK_BIN/limactl" "$MOCK_BIN/ssh" "$MOCK_BIN/gpg" "$MOCK_BIN/ansible-playbook"
 
 export DEVVM_CORE="$ROOT"
 export DEVVM_CONFIG="$CONFIG_DIR"
 export DEVVM_STATE="$STATE_DIR"
 export DEVVM_TEST_LOG="$LOG_FILE"
+export DEVVM_TEST_LIMA_LIST="$TMP_ROOT/lima-list"
+export DEVVM_TEST_SSH_STDIN="$TMP_ROOT/ssh-stdin"
 export USER="dev"
+export HOME="$TMP_ROOT/home"
 export PATH="$MOCK_BIN:$PATH"
+mkdir -p "$HOME"
 
 "$ROOT/bin/devvm" init >/dev/null
 "$ROOT/bin/devvm" new app --ports "3000 5173" --mount "$TMP_ROOT/share:/share:rw" >/dev/null
 "$ROOT/bin/devvm" create app >/dev/null
+printf 'devvm-app\n' >"$DEVVM_TEST_LIMA_LIST"
 
 grep -Fq "NODE_VERSION=''" "$CONFIG_DIR/vms/app.env"
 grep -Fq "MOUNTS='$TMP_ROOT/share:/share:rw'" "$CONFIG_DIR/vms/app.env"
@@ -89,6 +116,11 @@ AI_TOOLS="claude codex"
 CONFIG
 
 "$ROOT/bin/devvm" ai create >/dev/null
+"$ROOT/bin/devvm" gpg --help | grep -Fq 'devvm gpg create-subkey'
+mkdir -p "$HOME/.lima/devvm-app"
+touch "$HOME/.lima/devvm-app/ssh.config"
+printf 'secret-subkey-bundle' >"$TMP_ROOT/subkey.asc"
+"$ROOT/bin/devvm" gpg install app "$TMP_ROOT/subkey.asc" --signing-key ABCDEF >/dev/null
 
 grep -Fq "DEVVM_ROLE='ai'" "$CONFIG_DIR/vms/ai.env"
 grep -Fq "PORTS='8080:18080'" "$CONFIG_DIR/vms/ai.env"
@@ -96,10 +128,13 @@ grep -Fq 'devvm_role="ai"' "$STATE_DIR/generated/inventory.ini"
 grep -Fq 'ai_commit_model="commit.gguf"' "$STATE_DIR/generated/inventory.ini"
 grep -Fq 'guestPort: 8080' "$STATE_DIR/generated/devvm-ai.yaml"
 grep -Fq 'hostPort: 18080' "$STATE_DIR/generated/devvm-ai.yaml"
+grep -Fq 'ssh -F' "$LOG_FILE"
+grep -Fq 'lima-devvm-app' "$LOG_FILE"
+grep -Fq 'secret-subkey-bundle' "$DEVVM_TEST_SSH_STDIN"
 
 COMPLETION_FILE="$TMP_ROOT/devvm-completion.bash"
 "$ROOT/bin/devvm" completion bash >"$COMPLETION_FILE"
-grep -Fq 'complete -F _devvm_completion devvm' "$COMPLETION_FILE"
+grep -Fq 'complete -o default -F _devvm_completion devvm' "$COMPLETION_FILE"
 "$ROOT/bin/devvm" completion zsh | grep -Fq 'compdef _devvm devvm'
 
 # shellcheck source=/dev/null
@@ -131,4 +166,10 @@ devvm_assert_completion "--ports" devvm new app --
 devvm_assert_completion "--yes" devvm delete app ""
 devvm_assert_completion "--yes" devvm delete app --
 devvm_assert_completion "create" devvm ai ""
+devvm_assert_completion "gpg" devvm ""
+devvm_assert_completion "create-subkey" devvm gpg ""
+devvm_assert_completion "create-subkey" devvm gpg c
+devvm_assert_completion "app" devvm gpg install ""
+devvm_assert_completion "--label" devvm gpg create-subkey primary --
+devvm_assert_completion "--signing-key" devvm gpg install app subkey.asc ""
 devvm_assert_completion "bash" devvm completion ""

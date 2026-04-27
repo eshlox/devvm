@@ -33,6 +33,8 @@ source "$DEVVM_CORE/lib/ansible.sh"
 source "$DEVVM_CORE/lib/vm.sh"
 # shellcheck source=../lib/ai.sh
 source "$DEVVM_CORE/lib/ai.sh"
+# shellcheck source=../lib/gpg.sh
+source "$DEVVM_CORE/lib/gpg.sh"
 # shellcheck source=../lib/completion.sh
 source "$DEVVM_CORE/lib/completion.sh"
 
@@ -55,6 +57,7 @@ Usage:
   devvm status
   devvm doctor
   devvm ai create|update|enter|key
+  devvm gpg create-subkey|install|list|export-public
   devvm completion bash|zsh
   devvm self-update
 
@@ -132,6 +135,9 @@ devvm_main() {
 		help | -h | --help) devvm_ai_help ;;
 		*) devvm_die "unknown ai command: $subcmd" ;;
 		esac
+		;;
+	gpg)
+		devvm_gpg "$@"
 		;;
 	completion)
 		devvm_completion "$@"

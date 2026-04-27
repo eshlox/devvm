@@ -87,6 +87,7 @@ devvm key <name>
 devvm status
 devvm doctor
 devvm ai create|update|enter|key
+devvm gpg create-subkey|install|list|export-public
 devvm completion bash|zsh
 devvm self-update
 ```
@@ -95,8 +96,8 @@ devvm self-update
 
 ## Shell Completion
 
-Completion includes commands, command options, AI subcommands, and existing VM names from
-`~/.config/devvm/vms`.
+Completion includes commands, command options, AI/GPG subcommands, and existing VM names
+from `~/.config/devvm/vms`.
 
 For Zsh:
 
@@ -203,6 +204,36 @@ through `fnm` automatically unless the VM already has it.
 
 They include `devvm-ai-commit`, which sends only `git diff --cached` to the llama.cpp
 endpoint and prints a commit message.
+
+## GPG Commit Signing
+
+DevVM can automate signing subkeys without copying your primary GPG key into a VM. The
+primary key stays on macOS; each VM receives only the exported signing subkey you choose.
+Use one exported subkey bundle for many VMs if you want a shared signer, or create one
+subkey per VM/project by changing `--label`.
+
+Create a signing subkey on the host:
+
+```bash
+devvm gpg create-subkey <primary-key-id> --label myapp --expire 1y
+```
+
+The command writes a public key export and a `*-secret-subkey.asc` bundle under
+`~/.local/share/devvm-state/gpg` by default and may open your normal GPG pinentry prompt.
+Upload or replace the public key in GitHub, then install the secret subkey bundle into a
+VM:
+
+```bash
+devvm gpg install myapp ~/.local/share/devvm-state/gpg/myapp-secret-subkey.asc
+```
+
+Inside the VM, DevVM imports the subkey and configures Git to sign commits with that
+exact subkey. Secret subkey bundles are sensitive; do not commit them to your config
+repo.
+
+To revoke access for a VM, revoke or expire that subkey on the host, export the updated
+public key with `devvm gpg export-public <primary-key-id>`, and update the GPG key in
+GitHub.
 
 ## Development
 
