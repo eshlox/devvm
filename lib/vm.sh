@@ -171,8 +171,13 @@ devvm_create() {
 
 	limactl start "$VM_NAME"
 	devvm_provision "$name"
+	if declare -F devvm_post_provision >/dev/null 2>&1; then
+		devvm_post_provision "$name"
+	fi
 	devvm_log "VM ready: $VM_NAME"
-	devvm_log "Enter with 'devvm enter $name', then clone repositories under $CODE_DIR inside the VM."
+	if [ "$DEVVM_ROLE" != "ai" ]; then
+		devvm_log "Enter with 'devvm enter $name', then clone repositories under $CODE_DIR inside the VM."
+	fi
 }
 
 devvm_start() {
@@ -292,6 +297,9 @@ devvm_update() {
 	devvm_lima_require_instance "$VM_NAME"
 	limactl start "$VM_NAME"
 	devvm_provision "$name"
+	if declare -F devvm_post_provision >/dev/null 2>&1; then
+		devvm_post_provision "$name"
+	fi
 }
 
 devvm_update_all() {
@@ -310,6 +318,11 @@ devvm_update_all() {
 	done
 	[ "$found" = "1" ] || devvm_die "no existing DevVM Lima instances found for configs in $DEVVM_CONFIG/vms"
 	devvm_provision_all "${vms[@]}"
+	for vm in "${vms[@]}"; do
+		if declare -F devvm_post_provision >/dev/null 2>&1; then
+			devvm_post_provision "$vm"
+		fi
+	done
 }
 
 devvm_rebuild() {

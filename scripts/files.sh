@@ -8,6 +8,7 @@ devvm_shell_files() {
 		lib/backup.sh \
 		lib/config.sh \
 		lib/completion.sh \
+		lib/ai.sh \
 		lib/gpg.sh \
 		lib/lima.sh \
 		lib/provision.sh \

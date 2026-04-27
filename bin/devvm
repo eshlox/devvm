@@ -31,6 +31,8 @@ source "$DEVVM_CORE/lib/lima.sh"
 source "$DEVVM_CORE/lib/provision.sh"
 # shellcheck source=../lib/vm.sh
 source "$DEVVM_CORE/lib/vm.sh"
+# shellcheck source=../lib/ai.sh
+source "$DEVVM_CORE/lib/ai.sh"
 # shellcheck source=../lib/backup.sh
 source "$DEVVM_CORE/lib/backup.sh"
 # shellcheck source=../lib/gpg.sh
@@ -59,6 +61,7 @@ Usage:
   devvm key <name>
   devvm status
   devvm doctor
+  devvm ai create|update|enter|key|endpoint|status|logs
   devvm gpg create-subkey|install|list|export-public
   devvm completion bash|zsh
   devvm self-update
@@ -132,6 +135,9 @@ devvm_main() {
 		;;
 	doctor)
 		devvm_doctor "$@"
+		;;
+	ai)
+		devvm_ai "$@"
 		;;
 	gpg)
 		devvm_gpg "$@"

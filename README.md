@@ -8,6 +8,7 @@ CLI. The opinionated workflow is:
 ```text
 macOS: terminal + Lima + devvm CLI
 VM: Fedora + optional user-selected packages/scripts + source code under ~/code
+AI VM: optional Fedora VM running llama.cpp from DNF
 ```
 
 Project source code is not stored on macOS by default. DevVM creates and configures a
@@ -17,6 +18,10 @@ manually from inside the VM.
 The default guest is intentionally small. Editors, terminal tools, Git workflow
 preferences, language runtimes, and other personal tools belong in your DevVM config or
 setup scripts, not in the project defaults.
+
+The optional AI VM is separate from development VMs. It installs Fedora's `llama-cpp`
+package and exposes a local OpenAI-compatible endpoint for users who want local models
+without installing llama.cpp on macOS.
 
 ## Requirements
 
@@ -89,6 +94,7 @@ devvm restore <name> [backup-file]
 devvm key <name>
 devvm status
 devvm doctor
+devvm ai create|update|enter|key|endpoint|status|logs
 devvm gpg create-subkey|install|list|export-public
 devvm completion bash|zsh
 devvm self-update
@@ -166,6 +172,38 @@ devvm new myapp --setup "$HOME/.config/devvm/setup/myapp.sh"
 
 Dotfiles are also just setup. Use a setup script for your preferred approach, whether
 that is a bare Git repo, rsync, a dotfile manager, or something project-specific.
+
+## Local LLaMA VM
+
+`devvm ai create` creates a separate VM named `ai` by default and installs
+`llama-cpp` from Fedora packages. It does not install Claude, Codex, Node.js, or AI
+tooling into development VMs.
+
+Configure a model in `~/.config/devvm/config.env`:
+
+```bash
+AI_LLAMA_MODELS="model.gguf|https://example.com/model.gguf|sha256:<64 hex chars>"
+AI_LLAMA_MODEL="model.gguf"
+```
+
+Then create the service VM:
+
+```bash
+devvm ai create
+devvm ai endpoint
+```
+
+The default endpoint for other DevVMs is:
+
+```text
+http://host.lima.internal:18080/v1
+```
+
+Model downloads must use HTTPS and include a SHA-256 checksum. You can also leave
+`AI_LLAMA_MODELS` empty, place or mount a GGUF file under `AI_LLAMA_MODELS_DIR`, set
+`AI_LLAMA_MODEL`, and run `devvm ai update`.
+
+See [Local LLaMA](docs/ai.md) for configuration details.
 
 ## Explicit Shares
 

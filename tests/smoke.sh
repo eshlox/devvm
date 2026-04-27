@@ -122,15 +122,22 @@ GLOBAL_PACKAGES="helix"
 GLOBAL_SETUP_SCRIPTS="$TMP_ROOT/global-setup.sh"
 GIT_USER_NAME="Dev User"
 GIT_USER_EMAIL="dev@example.com"
+AI_LLAMA_MODELS="tiny.gguf|https://models.example/tiny.gguf|sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+AI_LLAMA_MODEL="tiny.gguf"
 CONFIG
 
 "$ROOT/bin/devvm" new app --ports "3000 5173" --packages "ripgrep fd-find" --setup "$TMP_ROOT/app-setup.sh" --mount "$TMP_ROOT/share:/share:rw" >/dev/null
 "$ROOT/bin/devvm" create app >/dev/null
 printf 'devvm-app\n' >"$DEVVM_TEST_LIMA_LIST"
+"$ROOT/bin/devvm" ai create >/dev/null
+printf 'devvm-app\ndevvm-ai\n' >"$DEVVM_TEST_LIMA_LIST"
 
 grep -Fq "PACKAGES='ripgrep fd-find'" "$CONFIG_DIR/vms/app.env"
 grep -Fq "SETUP_SCRIPTS='$TMP_ROOT/app-setup.sh'" "$CONFIG_DIR/vms/app.env"
 grep -Fq "MOUNTS='$TMP_ROOT/share:/share:rw'" "$CONFIG_DIR/vms/app.env"
+grep -Fq "DEVVM_ROLE='ai'" "$CONFIG_DIR/vms/ai.env"
+grep -Fq "PACKAGES='llama-cpp'" "$CONFIG_DIR/vms/ai.env"
+grep -Fq "PORTS='8080:18080'" "$CONFIG_DIR/vms/ai.env"
 if grep -Fq "TMUX_SESSION" "$CONFIG_DIR/vms/app.env"; then
 	echo "unexpected TMUX_SESSION in generated VM config" >&2
 	exit 1
@@ -144,6 +151,11 @@ grep -Fq 'ripgrep' "$LOG_FILE"
 grep -Fq 'fd-find' "$LOG_FILE"
 grep -Fq "$TMP_ROOT/global-setup.sh" "$LOG_FILE"
 grep -Fq "$TMP_ROOT/app-setup.sh" "$LOG_FILE"
+grep -Fq 'limactl create --name devvm-ai' "$LOG_FILE"
+grep -Fq 'llama-cpp' "$LOG_FILE"
+grep -Fq 'devvm-llama.service' "$LOG_FILE"
+grep -Fq 'tiny.gguf' "$LOG_FILE"
+"$ROOT/bin/devvm" ai endpoint | grep -Fq 'http://host.lima.internal:18080/v1'
 "$ROOT/bin/devvm" gpg --help | grep -Fq 'devvm gpg create-subkey'
 mkdir -p "$HOME/.lima/devvm-app"
 touch "$HOME/.lima/devvm-app/ssh.config"
@@ -205,6 +217,9 @@ devvm_assert_completion "--no-encrypt" devvm backup app --
 devvm_assert_completion "app" devvm restore ""
 devvm_assert_completion "--no-secrets" devvm restore app backup.tar.gz --
 devvm_assert_completion "gpg" devvm ""
+devvm_assert_completion "ai" devvm ""
+devvm_assert_completion "create" devvm ai ""
+devvm_assert_completion "--lines" devvm ai logs --
 devvm_assert_completion "create-subkey" devvm gpg ""
 devvm_assert_completion "create-subkey" devvm gpg c
 devvm_assert_completion "app" devvm gpg install ""
