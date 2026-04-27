@@ -96,3 +96,39 @@ grep -Fq 'devvm_role="ai"' "$STATE_DIR/generated/inventory.ini"
 grep -Fq 'ai_commit_model="commit.gguf"' "$STATE_DIR/generated/inventory.ini"
 grep -Fq 'guestPort: 8080' "$STATE_DIR/generated/devvm-ai.yaml"
 grep -Fq 'hostPort: 18080' "$STATE_DIR/generated/devvm-ai.yaml"
+
+COMPLETION_FILE="$TMP_ROOT/devvm-completion.bash"
+"$ROOT/bin/devvm" completion bash >"$COMPLETION_FILE"
+grep -Fq 'complete -F _devvm_completion devvm' "$COMPLETION_FILE"
+"$ROOT/bin/devvm" completion zsh | grep -Fq 'compdef _devvm devvm'
+
+# shellcheck source=/dev/null
+source "$COMPLETION_FILE"
+
+devvm_assert_completion() {
+	local expected
+	expected="$1"
+	shift
+
+	COMP_WORDS=("$@")
+	COMP_CWORD=$((${#COMP_WORDS[@]} - 1))
+	_devvm_completion
+
+	if ! printf '%s\n' "${COMPREPLY[@]}" | grep -Fxq -- "$expected"; then
+		printf 'missing completion %s for words:' "$expected" >&2
+		printf ' <%s>' "$@" >&2
+		printf '\nactual completions:\n' >&2
+		printf '%s\n' "${COMPREPLY[@]}" >&2
+		exit 1
+	fi
+}
+
+devvm_assert_completion "new" devvm ""
+devvm_assert_completion "app" devvm ""
+devvm_assert_completion "app" devvm enter ""
+devvm_assert_completion "all" devvm stop ""
+devvm_assert_completion "--ports" devvm new app --
+devvm_assert_completion "--yes" devvm delete app ""
+devvm_assert_completion "--yes" devvm delete app --
+devvm_assert_completion "create" devvm ai ""
+devvm_assert_completion "bash" devvm completion ""

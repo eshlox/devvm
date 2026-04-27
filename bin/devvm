@@ -33,6 +33,8 @@ source "$DEVVM_CORE/lib/ansible.sh"
 source "$DEVVM_CORE/lib/vm.sh"
 # shellcheck source=../lib/ai.sh
 source "$DEVVM_CORE/lib/ai.sh"
+# shellcheck source=../lib/completion.sh
+source "$DEVVM_CORE/lib/completion.sh"
 
 devvm_help() {
 	cat <<'HELP'
@@ -53,6 +55,7 @@ Usage:
   devvm status
   devvm doctor
   devvm ai create|update|enter|key
+  devvm completion bash|zsh
   devvm self-update
 
 Shortcut:
@@ -129,6 +132,9 @@ devvm_main() {
 		help | -h | --help) devvm_ai_help ;;
 		*) devvm_die "unknown ai command: $subcmd" ;;
 		esac
+		;;
+	completion)
+		devvm_completion "$@"
 		;;
 	self-update)
 		devvm_self_update "$@"

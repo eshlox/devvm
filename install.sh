@@ -20,3 +20,4 @@ done
 
 echo "Installed devvm at $PREFIX/devvm"
 echo "Ensure $PREFIX is in PATH."
+echo "Run 'devvm completion --help' for shell completion setup."
