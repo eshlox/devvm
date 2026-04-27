@@ -5,13 +5,12 @@ devvm_shell_files() {
 	printf '%s\n' \
 		install.sh \
 		bin/devvm \
-		lib/ai.sh \
-		lib/ansible.sh \
 		lib/backup.sh \
 		lib/config.sh \
 		lib/completion.sh \
 		lib/gpg.sh \
 		lib/lima.sh \
+		lib/provision.sh \
 		lib/util.sh \
 		lib/vm.sh \
 		scripts/files.sh \

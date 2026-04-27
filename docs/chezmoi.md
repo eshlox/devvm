@@ -1,23 +1,18 @@
 # chezmoi
 
-DevVM supports three chezmoi modes:
+chezmoi is optional. DevVM will not install it by default.
 
-- `none`: do not install or apply chezmoi.
-- `defaults`: copy `defaults/chezmoi` from this repo into the VM and apply it.
-- `user-repo`: initialize chezmoi from `CHEZMOI_REPO` and `CHEZMOI_BRANCH`.
-
-Configure this in `~/.config/devvm/config.env`:
+To use it, install the Fedora package through global or per-VM package config, then set
+your repo:
 
 ```bash
-CHEZMOI_MODE="user-repo"
+GLOBAL_PACKAGES="chezmoi"
 CHEZMOI_REPO="git@github.com:you/dotfiles.git"
 CHEZMOI_BRANCH="linux-vm"
 CHEZMOI_APPLY_ARGS="--force"
 ```
 
-The default source uses `.chezmoiroot` so files live under `home/`.
-
-DevVM writes machine data for templates:
+DevVM writes machine data for templates before applying chezmoi:
 
 ```toml
 [data]
@@ -26,6 +21,4 @@ DevVM writes machine data for templates:
     codeDir = "/home/<user>/code"
 ```
 
-chezmoi is the right place to configure personal tools such as editors, terminal
-multiplexers, file managers, lazygit, and shell preferences. For example, your own
-chezmoi repo can wire lazygit to `devvm-ai-commit`.
+Use your own chezmoi repo for editors, shells, language runtimes, and project tooling.

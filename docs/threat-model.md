@@ -27,10 +27,10 @@ Still in scope for risk:
 - Backups that include secrets contain VM SSH keys, GPG data, shell history, and tool
   credentials. Keep `DEVVM_BACKUP_ENCRYPT="auto"` or `--encrypt` unless you explicitly
   need plaintext.
-- AI requests sent to the llama.cpp VM expose prompt content to that AI VM.
-- Host-side Lima, Ansible, and terminal processes remain trusted.
+- Host-side Lima and terminal processes remain trusted.
 - `config.env`, `local.env`, and VM config files are sourced by Bash on macOS. Treat
   them as code, not as inert data.
+- Setup scripts configured with `GLOBAL_SETUP_SCRIPTS` or `SETUP_SCRIPTS` run inside
+  VMs with the same trust level as commands you type manually in that VM.
 - `devvm self-update` trusts the configured Git remote. A compromised upstream can
   execute host-side code on the next run.
-- Ansible host key checking is disabled for local ephemeral Lima VMs.

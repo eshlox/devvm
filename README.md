@@ -2,33 +2,32 @@
 
 Keep your friends close, your supply chain in a VM.
 
-DevVM creates disposable Fedora development VMs on macOS using Lima, Ansible, and
-chezmoi. The opinionated workflow is:
+DevVM creates disposable Fedora development VMs on macOS using Lima and a thin shell
+CLI. The opinionated workflow is:
 
 ```text
-macOS: terminal + Lima + Ansible + devvm CLI
-VM: Fedora + required system tools + optional dotfiles + source code under ~/code
+macOS: terminal + Lima + devvm CLI
+VM: Fedora + optional user-selected packages/scripts + source code under ~/code
 ```
 
 Project source code is not stored on macOS by default. DevVM creates and configures a
-VM, prepares `~/code`, configures Git/SSH/GPG-capable tooling, and then you clone
-repositories manually from inside the VM.
+VM, prepares `~/code`, configures a VM SSH key for Git, and then you clone repositories
+manually from inside the VM.
 
 The default guest is intentionally small. Editors, terminal tools, Git workflow
-preferences, and other personal tools belong in your DevVM config or chezmoi repo, not
-in the project defaults.
+preferences, language runtimes, and other personal tools belong in your DevVM config or
+setup scripts, not in the project defaults.
 
 ## Requirements
 
 - macOS on Apple Silicon
 - Lima 2.x or newer
-- Ansible
 - OpenSSH client
 
 Install common host dependencies with Homebrew:
 
 ```bash
-brew install lima ansible
+brew install lima
 ```
 
 `shellcheck` and `shfmt` are only needed for contributing to this repo, not for daily VM
@@ -72,7 +71,8 @@ cd ~/code/myapp
 
 ```text
 devvm init
-devvm new <name> [--ports "..."] [--node] [--mount host:guest[:ro|rw]]
+devvm new <name> [--ports "..."] [--packages "..."] [--setup script.sh]
+  [--mount host:guest[:ro|rw]]
 devvm create <name>
 devvm enter <name>
 devvm ssh <name> [command...]
@@ -89,7 +89,6 @@ devvm restore <name> [backup-file]
 devvm key <name>
 devvm status
 devvm doctor
-devvm ai create|update|enter|key
 devvm gpg create-subkey|install|list|export-public
 devvm completion bash|zsh
 devvm self-update
@@ -99,7 +98,7 @@ devvm self-update
 
 ## Shell Completion
 
-Completion includes commands, command options, AI/GPG subcommands, and existing VM names
+Completion includes commands, command options, GPG subcommands, and existing VM names
 from `~/.config/devvm/vms`.
 
 For Zsh:
@@ -136,7 +135,7 @@ secrets or temporary overrides in `local.env` and gitignore that file in your co
 repo.
 
 Set `GIT_USER_NAME` and `GIT_USER_EMAIL` there if you want DevVM to configure Git
-identity; leave them empty if chezmoi owns Git config.
+identity.
 
 Fedora image selection is delegated to Lima's current built-in template:
 
@@ -150,12 +149,23 @@ The default code directory is inside the guest user's home:
 DEVVM_CODE_DIR="$DEVVM_GUEST_HOME/code"
 ```
 
-Node.js and pnpm are opt-in. Set this globally or pass `--node` when creating a VM:
+No packages are installed by default. Install Fedora packages globally for every VM or
+per VM:
 
 ```bash
-DEFAULT_INSTALL_NODE="1"
-devvm new myapp --node
+GLOBAL_PACKAGES="helix ripgrep"
+devvm new myapp --packages "nodejs nodejs-npm pnpm"
 ```
+
+Run setup scripts globally for every VM or per VM:
+
+```bash
+GLOBAL_SETUP_SCRIPTS="$HOME/.config/devvm/setup/common.sh"
+devvm new myapp --setup "$HOME/.config/devvm/setup/myapp.sh"
+```
+
+Optional chezmoi support is user-driven. Add `chezmoi` to `GLOBAL_PACKAGES` or
+`PACKAGES`, then set `CHEZMOI_REPO`.
 
 ## Explicit Shares
 
@@ -178,7 +188,7 @@ Mounts use `host_path:guest_path[:ro|rw]`. DevVM refuses broad host mounts such 
 See [Explicit Shares](docs/shares.md) and the [Threat Model](docs/threat-model.md) for
 the host mount boundary and its limits.
 
-Generated Lima YAML and Ansible inventory live at:
+Generated Lima YAML lives at:
 
 ```text
 ~/.local/share/devvm-state/generated/
@@ -196,7 +206,7 @@ devvm backups myapp
 devvm restore myapp
 ```
 
-By default, backups include `~/code`, SSH keys, GPG data, Git config, selected AI CLI
+By default, backups include `~/code`, SSH keys, GPG data, Git config, selected tool
 state, and shell history. Restores also include secrets by default. Use `--no-secrets`
 on either command to limit the operation to code.
 
@@ -214,42 +224,6 @@ encryption or `--no-encrypt` to explicitly write plaintext.
 `devvm delete` automatically creates a backup before deleting a VM. `devvm rebuild`
 automatically backs up, recreates the VM, and restores that backup. Use `--no-backup` or
 `--no-restore` only when you intentionally want disposable state.
-
-## AI
-
-Create a dedicated llama.cpp VM:
-
-```bash
-devvm ai create
-```
-
-Configure models in `~/.config/devvm/config.env`:
-
-```bash
-AI_LLAMA_MODELS="commit.gguf|https://example.com/commit.gguf|sha256:<hex>"
-AI_COMMIT_MODEL="commit.gguf"
-```
-
-Model entries must include a `sha256:<hex>` checksum. HTTP model URLs require
-`AI_ALLOW_HTTP_MODEL_URLS=1` and still verify the checksum.
-
-Development VMs call the AI VM through:
-
-```text
-http://host.lima.internal:18080/v1
-```
-
-DevVM does not install npm-published AI CLIs automatically. Provisioned tools should
-come from Fedora DNF packages; install non-DNF tools through your own dotfiles only when
-you explicitly accept that source.
-
-```bash
-AI_TOOLS=""
-AI_EXTRA_NPM_PACKAGES=""
-```
-
-Development VMs include `devvm-ai-commit`, which sends only `git diff --cached` to the
-llama.cpp endpoint and prints a commit message.
 
 ## GPG Commit Signing
 

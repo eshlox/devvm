@@ -12,7 +12,7 @@ if [ ! -f "$CONFIG_DIR/config.env" ]; then
 	cp "$REPO_DIR/defaults/config.env" "$CONFIG_DIR/config.env"
 fi
 
-for cmd in limactl ansible-playbook; do
+for cmd in limactl ssh; do
 	if ! command -v "$cmd" >/dev/null 2>&1; then
 		echo "Warning: required command not found in PATH: $cmd" >&2
 	fi
