@@ -19,7 +19,7 @@ devvm_vm_exists() {
 }
 
 devvm_load_vm() {
-	local name vm_config combined_mounts
+	local name vm_config combined_mounts combined_packages combined_setup_scripts
 	name="$1"
 	devvm_validate_name "$name"
 	devvm_load_config
@@ -31,8 +31,8 @@ devvm_load_vm() {
 	CPUS="$DEFAULT_CPUS"
 	MEMORY="$DEFAULT_MEMORY"
 	DISK="$DEFAULT_DISK"
-	INSTALL_NODE="$DEFAULT_INSTALL_NODE"
-	NODE_VERSION="${DEFAULT_NODE_VERSION:-}"
+	PACKAGES=""
+	SETUP_SCRIPTS=""
 	PORTS="$DEFAULT_PORTS"
 	MOUNTS="$DEFAULT_MOUNTS"
 	DEVVM_ROLE="dev"
@@ -41,22 +41,22 @@ devvm_load_vm() {
 	[ -f "$vm_config" ] || devvm_die "missing VM config: $vm_config; create it with 'devvm new $name'"
 	# shellcheck source=/dev/null
 	source "$vm_config"
-	if ! grep -Eq '^[[:space:]]*INSTALL_NODE=' "$vm_config" && [ -n "${NODE_VERSION:-}" ]; then
-		INSTALL_NODE="1"
-	fi
-	INSTALL_NODE="$(devvm_bool "${INSTALL_NODE:-0}" "INSTALL_NODE")"
 
 	combined_mounts="${GLOBAL_MOUNTS:-} ${MOUNTS:-}"
 	EFFECTIVE_MOUNTS="${combined_mounts#"${combined_mounts%%[![:space:]]*}"}"
+	combined_packages="${GLOBAL_PACKAGES:-} ${PACKAGES:-}"
+	EFFECTIVE_PACKAGES="${combined_packages#"${combined_packages%%[![:space:]]*}"}"
+	combined_setup_scripts="${GLOBAL_SETUP_SCRIPTS:-} ${SETUP_SCRIPTS:-}"
+	EFFECTIVE_SETUP_SCRIPTS="${combined_setup_scripts#"${combined_setup_scripts%%[![:space:]]*}"}"
 
-	export NAME VM_NAME DISTRO CODE_DIR CPUS MEMORY DISK INSTALL_NODE NODE_VERSION PORTS MOUNTS
-	export EFFECTIVE_MOUNTS
+	export NAME VM_NAME DISTRO CODE_DIR CPUS MEMORY DISK PACKAGES SETUP_SCRIPTS PORTS MOUNTS
+	export EFFECTIVE_MOUNTS EFFECTIVE_PACKAGES EFFECTIVE_SETUP_SCRIPTS
 	export DEVVM_ROLE
 }
 
 devvm_new() {
-	local name ports cpus memory disk install_node mounts path arg
-	[ "$#" -ge 1 ] || devvm_die "usage: devvm new <name> [--ports \"3000 5173\"] [--node] [--mount host:guest[:ro|rw]]"
+	local name ports cpus memory disk mounts packages setup_scripts path arg
+	[ "$#" -ge 1 ] || devvm_die "usage: devvm new <name> [--ports \"3000 5173\"] [--packages \"helix jq\"] [--setup script.sh] [--mount host:guest[:ro|rw]]"
 
 	name="$1"
 	shift
@@ -67,8 +67,9 @@ devvm_new() {
 	cpus="$DEFAULT_CPUS"
 	memory="$DEFAULT_MEMORY"
 	disk="$DEFAULT_DISK"
-	install_node="$DEFAULT_INSTALL_NODE"
 	mounts="$DEFAULT_MOUNTS"
+	packages=""
+	setup_scripts=""
 
 	while [ "$#" -gt 0 ]; do
 		arg="$1"
@@ -94,15 +95,14 @@ devvm_new() {
 			disk="$1"
 			shift
 			;;
-		--node)
-			install_node="1"
+		--packages)
+			[ "$#" -gt 0 ] || devvm_die "--packages requires a value"
+			packages="$1"
+			shift
 			;;
-		--no-node)
-			install_node="0"
-			;;
-		--node-version)
-			[ "$#" -gt 0 ] || devvm_die "--node-version requires a value"
-			install_node="1"
+		--setup)
+			[ "$#" -gt 0 ] || devvm_die "--setup requires a value"
+			setup_scripts="${setup_scripts:+$setup_scripts }$1"
 			shift
 			;;
 		--mount | --share)
@@ -134,7 +134,8 @@ devvm_new() {
 		printf 'CPUS=%s\n' "$(devvm_shell_quote "$cpus")"
 		printf 'MEMORY=%s\n' "$(devvm_shell_quote "$memory")"
 		printf 'DISK=%s\n' "$(devvm_shell_quote "$disk")"
-		printf 'INSTALL_NODE=%s\n' "$(devvm_shell_quote "$(devvm_bool "$install_node" "INSTALL_NODE")")"
+		printf 'PACKAGES=%s\n' "$(devvm_shell_quote "$packages")"
+		printf 'SETUP_SCRIPTS=%s\n' "$(devvm_shell_quote "$setup_scripts")"
 		printf 'PORTS=%s\n' "$(devvm_shell_quote "$ports")"
 		printf 'MOUNTS=%s\n' "$(devvm_shell_quote "$mounts")"
 	} >"$path"
@@ -169,13 +170,9 @@ devvm_create() {
 	fi
 
 	limactl start "$VM_NAME"
-	devvm_run_ansible "$name"
+	devvm_provision "$name"
 	devvm_log "VM ready: $VM_NAME"
-	if [ "$DEVVM_ROLE" = "ai" ]; then
-		devvm_log "AI service VM is managed by Ansible; enter with 'devvm enter $name' for maintenance."
-	else
-		devvm_log "Enter with 'devvm enter $name', then clone repositories under $CODE_DIR inside the VM."
-	fi
+	devvm_log "Enter with 'devvm enter $name', then clone repositories under $CODE_DIR inside the VM."
 }
 
 devvm_start() {
@@ -294,7 +291,7 @@ devvm_update() {
 	devvm_load_vm "$name"
 	devvm_lima_require_instance "$VM_NAME"
 	limactl start "$VM_NAME"
-	devvm_run_ansible "$name"
+	devvm_provision "$name"
 }
 
 devvm_update_all() {
@@ -312,7 +309,7 @@ devvm_update_all() {
 		fi
 	done
 	[ "$found" = "1" ] || devvm_die "no existing DevVM Lima instances found for configs in $DEVVM_CONFIG/vms"
-	devvm_run_ansible_all "${vms[@]}"
+	devvm_provision_all "${vms[@]}"
 }
 
 devvm_rebuild() {
@@ -448,7 +445,7 @@ devvm_doctor() {
 	devvm_load_config
 	devvm_log "host: $system $machine"
 
-	for cmd in limactl ansible-playbook ssh git; do
+	for cmd in limactl ssh; do
 		if devvm_command_exists "$cmd"; then
 			devvm_log "ok: $cmd"
 		else

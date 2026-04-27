@@ -6,7 +6,6 @@ DevVM is a thin lifecycle wrapper around trusted tools:
 - Fedora is the default guest distribution.
 - A small shell provisioner creates VM-local directories and SSH keys.
 - User config owns package lists and setup scripts.
-- Optional chezmoi integration runs only when the user configures it.
 - The shell CLI coordinates config loading, Lima template overrides, audit rendering,
   and tool calls.
 

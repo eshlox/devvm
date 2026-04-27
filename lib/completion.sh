@@ -49,7 +49,7 @@ _devvm_completion_reply_vms() {
 }
 
 _devvm_completion() {
-	local cur prev cmd commands new_options yes_options delete_options rebuild_options backup_options restore_options ai_commands completion_shells
+	local cur prev cmd commands new_options yes_options delete_options rebuild_options backup_options restore_options completion_shells
 	local gpg_commands gpg_create_options gpg_install_options gpg_export_public_options
 	COMPREPLY=()
 
@@ -57,14 +57,13 @@ _devvm_completion() {
 	prev="${COMP_WORDS[$((COMP_CWORD - 1))]}"
 	cmd="${COMP_WORDS[1]:-}"
 
-	commands="help init new create enter ssh start stop delete rm update update-all rebuild rebuild-all backup backups restore key status list doctor ai gpg completion self-update"
-	new_options="--ports --cpus --memory --disk --node --no-node --node-version --mount --share"
+	commands="help init new create enter ssh start stop delete rm update update-all rebuild rebuild-all backup backups restore key status list doctor gpg completion self-update"
+	new_options="--ports --cpus --memory --disk --packages --setup --mount --share"
 	yes_options="--yes -y"
 	delete_options="$yes_options --backup --no-backup --include-secrets --no-secrets --encrypt --no-encrypt"
 	rebuild_options="$delete_options --restore --no-restore"
 	backup_options="--include-secrets --no-secrets --encrypt --no-encrypt --output"
 	restore_options="--include-secrets --no-secrets"
-	ai_commands="create update enter key help -h --help"
 	gpg_commands="create-subkey install list export-public help -h --help"
 	gpg_create_options="--label --expire --algo --output --force"
 	gpg_install_options="--public --signing-key"
@@ -79,7 +78,7 @@ _devvm_completion() {
 	case "$cmd" in
 	new)
 		case "$prev" in
-		--ports | --cpus | --memory | --disk | --node-version | --mount | --share)
+		--ports | --cpus | --memory | --disk | --packages | --setup | --mount | --share)
 			return 0
 			;;
 		esac
@@ -143,11 +142,6 @@ _devvm_completion() {
 			_devvm_completion_reply_vms "$cur"
 		elif [[ "$cur" == -* ]] || [ "$COMP_CWORD" -gt 3 ]; then
 			_devvm_completion_reply_words "$cur" "$restore_options"
-		fi
-		;;
-	ai)
-		if [ "$COMP_CWORD" -eq 2 ]; then
-			_devvm_completion_reply_words "$cur" "$ai_commands"
 		fi
 		;;
 	gpg)
@@ -251,7 +245,6 @@ _devvm_top_level() {
 		"status:show Lima VM status"
 		"list:show Lima VM status"
 		"doctor:check host setup"
-		"ai:manage the AI VM"
 		"gpg:manage GPG signing subkeys"
 		"completion:print shell completion"
 		"self-update:update the DevVM checkout"
@@ -277,9 +270,8 @@ _devvm() {
 			"--cpus[set VM CPU count]:cpus:" \
 			"--memory[set VM memory, e.g. 8GiB]:memory:" \
 			"--disk[set VM disk size, e.g. 80GiB]:disk:" \
-			"--node[install Fedora Node.js and pnpm packages]" \
-			"--no-node[do not install Node.js packages]" \
-			"--node-version[deprecated alias for --node]:value:" \
+			"--packages[set per-VM DNF package list]:packages:" \
+			"--setup[add a per-VM setup script path]:script:_files" \
 			"--mount[add a host:guest[:ro|rw] mount]:mount:" \
 			"--share[alias for --mount]:mount:"
 		;;
@@ -346,9 +338,6 @@ _devvm() {
 			"3:backup archive:_files" \
 			"--include-secrets[restore VM secrets]" \
 			"--no-secrets[restore only code]"
-		;;
-	ai)
-		_arguments "2:AI command:((create\\:create update\\:update enter\\:enter key\\:key help\\:help))"
 		;;
 	gpg)
 		case "${words[3]:-}" in

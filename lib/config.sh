@@ -7,36 +7,21 @@ DEVVM_STATE="${DEVVM_STATE:-$HOME/.local/share/devvm-state}"
 DEVVM_GENERATED="${DEVVM_GENERATED:-$DEVVM_STATE/generated}"
 
 devvm_load_config() {
-	local default_config user_config local_config first_model clean_model_url
-	local ai_allow_http_model_urls_configured ai_allow_insecure_model_urls_configured
+	local default_config user_config local_config
 	default_config="$DEVVM_CORE/defaults/config.env"
 	user_config="$DEVVM_CONFIG/config.env"
 	local_config="$DEVVM_CONFIG/local.env"
-	ai_allow_http_model_urls_configured="0"
-	ai_allow_insecure_model_urls_configured="0"
 
 	devvm_check_required_file "$default_config"
 	# shellcheck source=/dev/null
 	source "$default_config"
 
 	if [ -f "$user_config" ]; then
-		if grep -Eq '^[[:space:]]*AI_ALLOW_HTTP_MODEL_URLS=' "$user_config"; then
-			ai_allow_http_model_urls_configured="1"
-		fi
-		if grep -Eq '^[[:space:]]*AI_ALLOW_INSECURE_MODEL_URLS=' "$user_config"; then
-			ai_allow_insecure_model_urls_configured="1"
-		fi
 		# shellcheck source=/dev/null
 		source "$user_config"
 	fi
 
 	if [ -f "$local_config" ]; then
-		if grep -Eq '^[[:space:]]*AI_ALLOW_HTTP_MODEL_URLS=' "$local_config"; then
-			ai_allow_http_model_urls_configured="1"
-		fi
-		if grep -Eq '^[[:space:]]*AI_ALLOW_INSECURE_MODEL_URLS=' "$local_config"; then
-			ai_allow_insecure_model_urls_configured="1"
-		fi
 		# shellcheck source=/dev/null
 		source "$local_config"
 	fi
@@ -46,12 +31,10 @@ devvm_load_config() {
 	DEFAULT_CPUS="${DEFAULT_CPUS:-4}"
 	DEFAULT_MEMORY="${DEFAULT_MEMORY:-8GiB}"
 	DEFAULT_DISK="${DEFAULT_DISK:-80GiB}"
-	DEVVM_UPGRADE_PACKAGES="${DEVVM_UPGRADE_PACKAGES:-0}"
-	DEFAULT_INSTALL_NODE="${DEFAULT_INSTALL_NODE:-${DEFAULT_NODE_VERSION:+1}}"
-	DEFAULT_INSTALL_NODE="$(devvm_bool "$DEFAULT_INSTALL_NODE" "DEFAULT_INSTALL_NODE")"
-	DEFAULT_NODE_VERSION="${DEFAULT_NODE_VERSION:-}"
 	DEFAULT_PORTS="${DEFAULT_PORTS:-}"
 	DEFAULT_MOUNTS="${DEFAULT_MOUNTS:-}"
+	GLOBAL_PACKAGES="${GLOBAL_PACKAGES:-}"
+	GLOBAL_SETUP_SCRIPTS="${GLOBAL_SETUP_SCRIPTS:-}"
 	GLOBAL_MOUNTS="${GLOBAL_MOUNTS:-}"
 	DEVVM_ALLOW_SENSITIVE_MOUNTS="${DEVVM_ALLOW_SENSITIVE_MOUNTS:-0}"
 	LIMA_TEMPLATE="${LIMA_TEMPLATE:-template:fedora}"
@@ -66,55 +49,14 @@ devvm_load_config() {
 	DEVVM_BACKUP_EXCLUDES="${DEVVM_BACKUP_EXCLUDES:-*/node_modules */.cache */target */.venv}"
 	GIT_USER_NAME="${GIT_USER_NAME:-}"
 	GIT_USER_EMAIL="${GIT_USER_EMAIL:-}"
-	CHEZMOI_MODE="${CHEZMOI_MODE:-defaults}"
-	CHEZMOI_REPO="${CHEZMOI_REPO:-}"
-	CHEZMOI_BRANCH="${CHEZMOI_BRANCH:-main}"
-	CHEZMOI_APPLY_ARGS="${CHEZMOI_APPLY_ARGS:---force}"
-	ANSIBLE_FORKS="${ANSIBLE_FORKS:-5}"
-	ANSIBLE_VERBOSITY="${ANSIBLE_VERBOSITY:-}"
-	AI_TOOLS="${AI_TOOLS:-}"
-	AI_EXTRA_NPM_PACKAGES="${AI_EXTRA_NPM_PACKAGES:-}"
-	AI_VM_NAME="${AI_VM_NAME:-ai}"
-	AI_VM_CPUS="${AI_VM_CPUS:-6}"
-	AI_VM_MEMORY="${AI_VM_MEMORY:-12GiB}"
-	AI_VM_DISK="${AI_VM_DISK:-120GiB}"
-	AI_VM_CODE_DIR="${AI_VM_CODE_DIR:-/srv/ai}"
-	AI_LLAMA_MODELS="${AI_LLAMA_MODELS:-}"
-	if [ "$ai_allow_http_model_urls_configured" != "1" ] && [ "$ai_allow_insecure_model_urls_configured" = "1" ]; then
-		AI_ALLOW_HTTP_MODEL_URLS="$AI_ALLOW_INSECURE_MODEL_URLS"
-	else
-		AI_ALLOW_HTTP_MODEL_URLS="${AI_ALLOW_HTTP_MODEL_URLS:-0}"
-	fi
-	AI_ALLOW_INSECURE_MODEL_URLS="$AI_ALLOW_HTTP_MODEL_URLS"
-	AI_LLAMA_MODELS_DIR="${AI_LLAMA_MODELS_DIR:-/models}"
-	AI_LLAMA_SERVER_PORT="${AI_LLAMA_SERVER_PORT:-8080}"
-	AI_LLAMA_HOST_PORT="${AI_LLAMA_HOST_PORT:-18080}"
-	AI_LLAMA_CTX_SIZE="${AI_LLAMA_CTX_SIZE:-4096}"
-	AI_LLAMA_EXTRA_ARGS="${AI_LLAMA_EXTRA_ARGS:-}"
-	AI_LLAMA_BASE_URL="${AI_LLAMA_BASE_URL:-http://host.lima.internal:$AI_LLAMA_HOST_PORT/v1}"
-	AI_COMMIT_MODEL="${AI_COMMIT_MODEL:-}"
-	if [ -z "$AI_COMMIT_MODEL" ] && [ -n "$AI_LLAMA_MODELS" ]; then
-		first_model="${AI_LLAMA_MODELS%% *}"
-		if [ "${first_model#*|}" != "$first_model" ]; then
-			AI_COMMIT_MODEL="${first_model%%|*}"
-		else
-			clean_model_url="${first_model%%\?*}"
-			AI_COMMIT_MODEL="$(basename "$clean_model_url")"
-		fi
-	fi
 	export VM_PREFIX DEFAULT_DISTRO DEFAULT_CPUS DEFAULT_MEMORY DEFAULT_DISK
-	export DEVVM_UPGRADE_PACKAGES DEFAULT_INSTALL_NODE DEFAULT_NODE_VERSION DEFAULT_PORTS DEFAULT_MOUNTS GLOBAL_MOUNTS DEVVM_ALLOW_SENSITIVE_MOUNTS
+	export DEFAULT_PORTS DEFAULT_MOUNTS GLOBAL_PACKAGES GLOBAL_SETUP_SCRIPTS
+	export GLOBAL_MOUNTS DEVVM_ALLOW_SENSITIVE_MOUNTS
 	export LIMA_TEMPLATE LIMA_ARCH DEVVM_CODE_DIR
-	export GIT_USER_NAME GIT_USER_EMAIL CHEZMOI_MODE CHEZMOI_REPO CHEZMOI_BRANCH
-	export CHEZMOI_APPLY_ARGS ANSIBLE_FORKS ANSIBLE_VERBOSITY DEVVM_GUEST_USER
+	export GIT_USER_NAME GIT_USER_EMAIL DEVVM_GUEST_USER
 	export DEVVM_GUEST_HOME
 	export DEVVM_BACKUP_DIR DEVVM_BACKUP_INCLUDE_SECRETS DEVVM_RESTORE_INCLUDE_SECRETS
 	export DEVVM_BACKUP_ENCRYPT DEVVM_BACKUP_EXCLUDES
-	export AI_TOOLS AI_EXTRA_NPM_PACKAGES AI_VM_NAME AI_VM_CPUS AI_VM_MEMORY AI_VM_DISK
-	export AI_VM_CODE_DIR AI_LLAMA_MODELS
-	export AI_ALLOW_HTTP_MODEL_URLS AI_ALLOW_INSECURE_MODEL_URLS
-	export AI_LLAMA_MODELS_DIR AI_LLAMA_SERVER_PORT AI_LLAMA_HOST_PORT AI_LLAMA_CTX_SIZE
-	export AI_LLAMA_EXTRA_ARGS AI_LLAMA_BASE_URL AI_COMMIT_MODEL
 }
 
 devvm_init() {

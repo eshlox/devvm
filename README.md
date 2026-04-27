@@ -164,8 +164,8 @@ GLOBAL_SETUP_SCRIPTS="$HOME/.config/devvm/setup/common.sh"
 devvm new myapp --setup "$HOME/.config/devvm/setup/myapp.sh"
 ```
 
-Optional chezmoi support is user-driven. Add `chezmoi` to `GLOBAL_PACKAGES` or
-`PACKAGES`, then set `CHEZMOI_REPO`.
+Dotfiles are also just setup. Use a setup script for your preferred approach, whether
+that is a bare Git repo, rsync, a dotfile manager, or something project-specific.
 
 ## Explicit Shares
 
