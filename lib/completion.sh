@@ -52,6 +52,7 @@ _devvm_completion() {
 	local cur prev cmd commands new_options yes_options delete_options rebuild_options backup_options restore_options completion_shells
 	local ai_commands ai_logs_options
 	local gpg_commands gpg_create_options gpg_install_options gpg_export_public_options
+	local self_update_options
 	COMPREPLY=()
 
 	cur="${COMP_WORDS[$COMP_CWORD]}"
@@ -71,6 +72,7 @@ _devvm_completion() {
 	gpg_create_options="--label --expire --algo --output --force"
 	gpg_install_options="--public --signing-key"
 	gpg_export_public_options="--output"
+	self_update_options="--version --source --verify-tag --no-verify-tag --force --rollback"
 	completion_shells="bash zsh"
 
 	if [ "$COMP_CWORD" -eq 1 ]; then
@@ -210,6 +212,16 @@ _devvm_completion() {
 			_devvm_completion_reply_words "$cur" "$completion_shells"
 		fi
 		;;
+	self-update)
+		case "$prev" in
+		--version | --source)
+			return 0
+			;;
+		esac
+		if [[ "$cur" == -* ]] || [ "$COMP_CWORD" -gt 1 ]; then
+			_devvm_completion_reply_words "$cur" "$self_update_options"
+		fi
+		;;
 	esac
 }
 
@@ -269,7 +281,7 @@ _devvm_top_level() {
 		"ai:manage the llama.cpp service VM"
 		"gpg:manage GPG signing subkeys"
 		"completion:print shell completion"
-		"self-update:update the DevVM checkout"
+		"self-update:update the DevVM install"
 	)
 
 	_describe -t devvm-commands "command" commands
@@ -400,6 +412,15 @@ _devvm() {
 		;;
 	completion)
 		_arguments "2:shell:((bash\\:Bash zsh\\:Zsh))"
+		;;
+	self-update)
+		_arguments \
+			"--version[install release version]:version:" \
+			"--source[set release git source]:git-url:" \
+			"--verify-tag[verify signed release tag]" \
+			"--no-verify-tag[skip signed tag verification]" \
+			"--force[replace existing installed version]" \
+			"--rollback[roll back to previous copied install]"
 		;;
 	esac
 }

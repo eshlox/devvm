@@ -101,11 +101,3 @@ devvm_init() {
 
 	devvm_log "initialized DevVM config at $DEVVM_CONFIG"
 }
-
-devvm_self_update() {
-	devvm_require_command git
-	if [ ! -d "$DEVVM_CORE/.git" ]; then
-		devvm_die "DEVVM_CORE is not a git checkout: $DEVVM_CORE"
-	fi
-	git -C "$DEVVM_CORE" pull --ff-only
-}

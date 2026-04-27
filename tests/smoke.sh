@@ -105,6 +105,20 @@ mkdir -p "$HOME"
 
 "$ROOT/bin/devvm" init >/dev/null
 
+DEVVM_CONFIG="$TMP_ROOT/install-config" "$ROOT/install.sh" \
+	--prefix "$TMP_ROOT/install-bin" \
+	--install-dir "$TMP_ROOT/install-root" \
+	--repo "https://example.invalid/eshlox/devenv.git" >/dev/null
+grep -Fq "DEVVM_INSTALL_MODE='copy'" "$TMP_ROOT/install-root/install.env"
+[ -L "$TMP_ROOT/install-root/current" ]
+[ -L "$TMP_ROOT/install-bin/devvm" ]
+env -u DEVVM_CORE "$TMP_ROOT/install-bin/devvm" self-update --help | grep -Fq 'copied installs'
+if env -u DEVVM_CORE "$TMP_ROOT/install-bin/devvm" self-update 2>"$TMP_ROOT/self-update.err"; then
+	echo "copied self-update without --version unexpectedly succeeded" >&2
+	exit 1
+fi
+grep -Fq 'copied installs require' "$TMP_ROOT/self-update.err"
+
 cat >"$TMP_ROOT/global-setup.sh" <<'SCRIPT'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -220,6 +234,7 @@ devvm_assert_completion "gpg" devvm ""
 devvm_assert_completion "ai" devvm ""
 devvm_assert_completion "create" devvm ai ""
 devvm_assert_completion "--lines" devvm ai logs --
+devvm_assert_completion "--version" devvm self-update --
 devvm_assert_completion "create-subkey" devvm gpg ""
 devvm_assert_completion "create-subkey" devvm gpg c
 devvm_assert_completion "app" devvm gpg install ""

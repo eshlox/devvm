@@ -7,6 +7,7 @@ devvm_shell_files() {
 		bin/devvm \
 		lib/backup.sh \
 		lib/config.sh \
+		lib/update.sh \
 		lib/completion.sh \
 		lib/ai.sh \
 		lib/gpg.sh \

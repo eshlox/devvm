@@ -36,5 +36,7 @@ Still in scope for risk:
   VMs with the same trust level as commands you type manually in that VM.
 - Configured AI model downloads trust the configured URL and checksum. DevVM requires
   SHA-256 checksums for model downloads and rejects HTTP by default.
-- `devvm self-update` trusts the configured Git remote. A compromised upstream can
-  execute host-side code on the next run.
+- Source-checkout `devvm self-update` trusts the configured Git remote. A compromised
+  upstream can execute host-side code on the next run.
+- Copied-install `devvm self-update --version <tag>` verifies release tags with
+  `git tag -v` by default. Skipping tag verification weakens that boundary.

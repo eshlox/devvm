@@ -25,6 +25,8 @@ export DEVVM_CORE
 source "$DEVVM_CORE/lib/util.sh"
 # shellcheck source=../lib/config.sh
 source "$DEVVM_CORE/lib/config.sh"
+# shellcheck source=../lib/update.sh
+source "$DEVVM_CORE/lib/update.sh"
 # shellcheck source=../lib/lima.sh
 source "$DEVVM_CORE/lib/lima.sh"
 # shellcheck source=../lib/provision.sh
@@ -64,7 +66,7 @@ Usage:
   devvm ai create|update|enter|key|endpoint|status|logs
   devvm gpg create-subkey|install|list|export-public
   devvm completion bash|zsh
-  devvm self-update
+  devvm self-update [--version v0.1.0|--rollback]
 
 Shortcut:
   devvm <name>   enters an existing VM

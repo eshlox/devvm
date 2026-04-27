@@ -58,12 +58,39 @@ usage.
 
 ## Install
 
+Clone and inspect the repo, then run the installer:
+
 ```bash
+git clone https://github.com/eshlox/devenv.git
+cd devenv
 ./install.sh
 ```
 
-The installer symlinks `bin/devvm` into `~/.local/bin/devvm`, creates `~/.config/devvm`,
-and copies the default config only if it does not already exist.
+The default installer copies DevVM into a versioned directory and links the command:
+
+```text
+~/.local/share/devvm/versions/<version>/
+~/.local/share/devvm/current -> versions/<version>
+~/.local/bin/devvm -> ~/.local/share/devvm/current/bin/devvm
+```
+
+It creates `~/.config/devvm` and copies the default config only if it does not already
+exist. The installer refuses to replace an unrelated existing `devvm` command unless
+you pass `--force`.
+
+For development on the DevVM checkout itself, use a source symlink install:
+
+```bash
+./install.sh --symlink
+```
+
+Useful options:
+
+```text
+./install.sh --prefix ~/.local/bin --install-dir ~/.local/share/devvm
+./install.sh --dry-run
+./install.sh --force
+```
 
 ## Workflow
 
@@ -115,7 +142,7 @@ devvm doctor
 devvm ai create|update|enter|key|endpoint|status|logs
 devvm gpg create-subkey|install|list|export-public
 devvm completion bash|zsh
-devvm self-update
+devvm self-update [--version v0.1.0|--rollback]
 ```
 
 `devvm <name>` is a shortcut for `devvm enter <name>`.
@@ -310,6 +337,32 @@ repo.
 To revoke access for a VM, revoke or expire that subkey on the host, export the updated
 public key with `devvm gpg export-public <primary-key-id>`, and update the GPG key in
 GitHub.
+
+## Updating DevVM
+
+Source symlink installs update the checkout:
+
+```bash
+devvm self-update
+```
+
+Copied installs are updated by installing a specific release tag:
+
+```bash
+devvm self-update --version v0.1.0
+```
+
+For copied installs, DevVM fetches the tag from the recorded Git remote, verifies it
+with `git tag -v`, copies it into `~/.local/share/devvm/versions/<version>`, and then
+switches the `current` symlink. Use signed release tags for normal releases.
+
+Rollback switches back to the previously active copied version:
+
+```bash
+devvm self-update --rollback
+```
+
+If you intentionally need to test an unsigned local tag, pass `--no-verify-tag`.
 
 ## Development
 
