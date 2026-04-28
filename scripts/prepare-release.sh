@@ -14,7 +14,7 @@ Examples:
   scripts/prepare-release.sh v0.1.0 --push
 
 The script expects CHANGELOG.md to contain a matching "## <version>" section.
-It runs local checks, creates an annotated git tag, and optionally pushes the
+It runs local checks, creates a signed annotated git tag, and optionally pushes the
 current branch plus the tag to origin.
 HELP
 }
@@ -78,7 +78,7 @@ awk -v version="$version" '
 ' CHANGELOG.md || die "CHANGELOG.md is missing a ## $version section"
 
 bash scripts/check.sh
-git tag -a "$tag" -m "$tag"
+git tag -s "$tag" -m "$tag"
 
 echo "Created tag $tag"
 

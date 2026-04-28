@@ -51,6 +51,131 @@ devvm_shell_quote() {
 	printf "'%s'" "$(printf '%s' "$value" | sed "s/'/'\\\\''/g")"
 }
 
+devvm_config_quote() {
+	local value
+	value="${1:-}"
+	value="${value//\\/\\\\}"
+	value="${value//\"/\\\"}"
+	value="${value//$'\n'/\\n}"
+	printf '"%s"' "$value"
+}
+
+devvm_trim() {
+	local value
+	value="$1"
+	value="${value#"${value%%[![:space:]]*}"}"
+	value="${value%"${value##*[![:space:]]}"}"
+	printf '%s\n' "$value"
+}
+
+devvm_expand_config_vars() {
+	local value output i char next name rest
+	value="$1"
+	output=""
+	i="0"
+	while [ "$i" -lt "${#value}" ]; do
+		char="${value:$i:1}"
+		if [ "$char" != '$' ]; then
+			output="$output$char"
+			i=$((i + 1))
+			continue
+		fi
+
+		next="${value:$((i + 1)):1}"
+		if [ "$next" = "{" ]; then
+			rest="${value:$((i + 2))}"
+			name="${rest%%\}*}"
+			[ "${rest#*\}}" != "$rest" ] || devvm_die "unterminated variable expansion in config value: $value"
+			case "$name" in
+			'' | *[!A-Za-z0-9_]* | [0-9]*) devvm_die "invalid variable name in config value: $name" ;;
+			esac
+			output="$output${!name-}"
+			i=$((i + 3 + ${#name}))
+			continue
+		fi
+
+		case "$next" in
+		[A-Za-z_])
+			rest="${value:$((i + 1))}"
+			name="$rest"
+			name="${name%%[!A-Za-z0-9_]*}"
+			output="$output${!name-}"
+			i=$((i + 1 + ${#name}))
+			;;
+		*)
+			output="$output$char"
+			i=$((i + 1))
+			;;
+		esac
+	done
+	printf '%s\n' "$output"
+}
+
+devvm_unquote_config_value() {
+	local value quote inner
+	value="$(devvm_trim "$1")"
+
+	# shellcheck disable=SC2016
+	case "$value" in
+	*'$('* | *'`'*)
+		devvm_die "unsupported shell syntax in config value: $value"
+		;;
+	esac
+
+	quote="${value:0:1}"
+	case "$quote" in
+	"'")
+		[ "${value: -1}" = "'" ] || devvm_die "unterminated single-quoted config value: $value"
+		inner="${value:1:${#value}-2}"
+		case "$inner" in
+		*"'"*) devvm_die "embedded single quotes are not supported in config values: $value" ;;
+		esac
+		printf '%s\n' "$inner"
+		;;
+	'"')
+		[ "${value: -1}" = '"' ] || devvm_die "unterminated double-quoted config value: $value"
+		inner="${value:1:${#value}-2}"
+		inner="${inner//\\n/$'\n'}"
+		inner="${inner//\\\"/\"}"
+		inner="${inner//\\\\/\\}"
+		devvm_expand_config_vars "$inner"
+		;;
+	*)
+		case "$value" in
+		*[[:space:]]*) devvm_die "unquoted config values must not contain whitespace: $value" ;;
+		esac
+		devvm_expand_config_vars "$value"
+		;;
+	esac
+}
+
+devvm_load_env_file() {
+	local file line_number line trimmed key value
+	file="$1"
+	[ -f "$file" ] || devvm_die "missing config file: $file"
+
+	line_number="0"
+	while IFS= read -r line || [ -n "$line" ]; do
+		line_number=$((line_number + 1))
+		trimmed="$(devvm_trim "$line")"
+		case "$trimmed" in
+		'' | \#*) continue ;;
+		export\ *) devvm_die "$file:$line_number: export is not supported; use KEY=value" ;;
+		*=*) ;;
+		*) devvm_die "$file:$line_number: expected KEY=value" ;;
+		esac
+
+		key="${trimmed%%=*}"
+		value="${trimmed#*=}"
+		key="$(devvm_trim "$key")"
+		case "$key" in
+		'' | *[!A-Za-z0-9_]* | [0-9]*) devvm_die "$file:$line_number: invalid key: $key" ;;
+		esac
+		value="$(devvm_unquote_config_value "$value")"
+		printf -v "$key" '%s' "$value"
+	done <"$file"
+}
+
 devvm_ini_quote() {
 	local value
 	value="${1:-}"
@@ -96,4 +221,23 @@ devvm_check_required_file() {
 
 devvm_host_user() {
 	id -un
+}
+
+devvm_file_mode() {
+	local path mode
+	path="$1"
+	if mode="$(stat -f '%Lp' "$path" 2>/dev/null)"; then
+		printf '%s\n' "$mode"
+	elif mode="$(stat -c '%a' "$path" 2>/dev/null)"; then
+		printf '%s\n' "$mode"
+	else
+		return 1
+	fi
+}
+
+devvm_mode_has_group_or_world_write() {
+	local mode perm
+	mode="$1"
+	perm=$((8#$mode))
+	[ $((perm & 022)) -ne 0 ]
 }

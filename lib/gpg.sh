@@ -181,15 +181,15 @@ devvm_gpg_create_subkey() {
 }
 
 devvm_gpg_bundle_subkey_fingerprint() (
-	local bundle tmp fprs count
+	local bundle tmp import_output fprs count
 	bundle="$1"
 	tmp="$(mktemp -d)"
 	chmod 0700 "$tmp"
 	# shellcheck disable=SC2064 # Capture path before EXIT cleanup.
 	trap "rm -rf $(devvm_shell_quote "$tmp")" EXIT
 
-	GNUPGHOME="$tmp" gpg --batch --quiet --import "$bundle" >/dev/null 2>&1 ||
-		devvm_die "could not inspect GPG subkey bundle: $bundle"
+	import_output="$(GNUPGHOME="$tmp" gpg --batch --quiet --import "$bundle" 2>&1)" ||
+		devvm_die "could not inspect GPG subkey bundle: $bundle: $import_output"
 
 	fprs="$(GNUPGHOME="$tmp" devvm_gpg_secret_subkey_fingerprints)"
 	count="$(printf '%s\n' "$fprs" | sed '/^$/d' | wc -l | tr -d ' ')"

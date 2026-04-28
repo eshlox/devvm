@@ -13,17 +13,14 @@ devvm_load_config() {
 	local_config="$DEVVM_CONFIG/local.env"
 
 	devvm_check_required_file "$default_config"
-	# shellcheck source=/dev/null
-	source "$default_config"
+	devvm_load_env_file "$default_config"
 
 	if [ -f "$user_config" ]; then
-		# shellcheck source=/dev/null
-		source "$user_config"
+		devvm_load_env_file "$user_config"
 	fi
 
 	if [ -f "$local_config" ]; then
-		# shellcheck source=/dev/null
-		source "$local_config"
+		devvm_load_env_file "$local_config"
 	fi
 
 	VM_PREFIX="${VM_PREFIX:-devvm}"
@@ -45,8 +42,17 @@ devvm_load_config() {
 	DEVVM_BACKUP_DIR="${DEVVM_BACKUP_DIR:-$DEVVM_STATE/backups}"
 	DEVVM_BACKUP_INCLUDE_SECRETS="${DEVVM_BACKUP_INCLUDE_SECRETS:-1}"
 	DEVVM_RESTORE_INCLUDE_SECRETS="${DEVVM_RESTORE_INCLUDE_SECRETS:-1}"
-	DEVVM_BACKUP_ENCRYPT="${DEVVM_BACKUP_ENCRYPT:-auto}"
+	DEVVM_BACKUP_ENCRYPT="${DEVVM_BACKUP_ENCRYPT:-1}"
+	DEVVM_BACKUP_ALLOW_PLAINTEXT_SECRETS="${DEVVM_BACKUP_ALLOW_PLAINTEXT_SECRETS:-0}"
+	DEVVM_BACKUP_ALLOW_PLAINTEXT_SECRETS="$(devvm_bool "$DEVVM_BACKUP_ALLOW_PLAINTEXT_SECRETS" "DEVVM_BACKUP_ALLOW_PLAINTEXT_SECRETS")"
 	DEVVM_BACKUP_EXCLUDES="${DEVVM_BACKUP_EXCLUDES:-*/node_modules */.cache */target */.venv}"
+	DEVVM_RELEASE_SIGNER_FINGERPRINTS="${DEVVM_RELEASE_SIGNER_FINGERPRINTS:-}"
+	DEVVM_UPDATE_CHECK_ENABLED="${DEVVM_UPDATE_CHECK_ENABLED:-1}"
+	DEVVM_UPDATE_CHECK_ENABLED="$(devvm_bool "$DEVVM_UPDATE_CHECK_ENABLED" "DEVVM_UPDATE_CHECK_ENABLED")"
+	DEVVM_UPDATE_CHECK_INTERVAL_SECONDS="${DEVVM_UPDATE_CHECK_INTERVAL_SECONDS:-86400}"
+	case "$DEVVM_UPDATE_CHECK_INTERVAL_SECONDS" in
+	'' | *[!0-9]*) devvm_die "DEVVM_UPDATE_CHECK_INTERVAL_SECONDS must be a non-negative integer" ;;
+	esac
 	GIT_USER_NAME="${GIT_USER_NAME:-}"
 	GIT_USER_EMAIL="${GIT_USER_EMAIL:-}"
 	AI_VM_NAME="${AI_VM_NAME:-ai}"
@@ -74,7 +80,9 @@ devvm_load_config() {
 	export GIT_USER_NAME GIT_USER_EMAIL DEVVM_GUEST_USER
 	export DEVVM_GUEST_HOME
 	export DEVVM_BACKUP_DIR DEVVM_BACKUP_INCLUDE_SECRETS DEVVM_RESTORE_INCLUDE_SECRETS
-	export DEVVM_BACKUP_ENCRYPT DEVVM_BACKUP_EXCLUDES
+	export DEVVM_BACKUP_ENCRYPT DEVVM_BACKUP_ALLOW_PLAINTEXT_SECRETS DEVVM_BACKUP_EXCLUDES
+	export DEVVM_RELEASE_SIGNER_FINGERPRINTS DEVVM_UPDATE_CHECK_ENABLED
+	export DEVVM_UPDATE_CHECK_INTERVAL_SECONDS
 	export AI_VM_NAME AI_VM_CPUS AI_VM_MEMORY AI_VM_DISK AI_VM_CODE_DIR
 	export AI_LLAMA_PACKAGES AI_LLAMA_MOUNTS AI_LLAMA_MODELS_DIR AI_LLAMA_MODELS
 	export AI_LLAMA_MODEL AI_ALLOW_HTTP_MODEL_URLS AI_LLAMA_LISTEN_HOST
@@ -100,12 +108,4 @@ devvm_init() {
 	fi
 
 	devvm_log "initialized DevVM config at $DEVVM_CONFIG"
-}
-
-devvm_self_update() {
-	devvm_require_command git
-	if [ ! -d "$DEVVM_CORE/.git" ]; then
-		devvm_die "DEVVM_CORE is not a git checkout: $DEVVM_CORE"
-	fi
-	git -C "$DEVVM_CORE" pull --ff-only
 }

@@ -25,6 +25,8 @@ esac
 
 VERSION="${TAG#v}"
 NOTES_FILE="$(mktemp)"
+ASSET_DIR="$ROOT/dist/release"
+ARCHIVE="devvm-$TAG.tar.gz"
 trap 'rm -f "$NOTES_FILE"' EXIT
 
 if gh release view "$TAG" >/dev/null 2>&1; then
@@ -58,7 +60,21 @@ awk -v version="$VERSION" '
 	} >"$NOTES_FILE"
 }
 
+rm -rf "$ASSET_DIR"
+mkdir -p "$ASSET_DIR"
+git archive --format=tar.gz --prefix="devvm-$TAG/" --output "$ASSET_DIR/$ARCHIVE" "$TAG"
+(
+	cd "$ASSET_DIR"
+	if command -v shasum >/dev/null 2>&1; then
+		shasum -a 256 "$ARCHIVE" >SHA256SUMS
+	else
+		sha256sum "$ARCHIVE" >SHA256SUMS
+	fi
+)
+
 gh release create "$TAG" \
 	--title "$TAG" \
 	--notes-file "$NOTES_FILE" \
-	--verify-tag
+	--verify-tag \
+	"$ASSET_DIR/$ARCHIVE" \
+	"$ASSET_DIR/SHA256SUMS"

@@ -38,7 +38,10 @@ devvm_backup_resolve_encrypt() {
 			printf '1\n'
 		else
 			if [ "$include_secrets" = "1" ]; then
-				devvm_warn "gpg not found; creating an unencrypted backup that includes secrets"
+				if [ "${DEVVM_BACKUP_ALLOW_PLAINTEXT_SECRETS:-0}" != "1" ]; then
+					devvm_die "refusing plaintext backup with secrets; install gpg, use --no-secrets, or set DEVVM_BACKUP_ALLOW_PLAINTEXT_SECRETS=1"
+				fi
+				devvm_warn "gpg not found; creating an unencrypted backup that includes secrets because DEVVM_BACKUP_ALLOW_PLAINTEXT_SECRETS=1"
 			fi
 			printf '0\n'
 		fi
@@ -48,6 +51,9 @@ devvm_backup_resolve_encrypt() {
 		printf '1\n'
 		;;
 	0 | false | no | off)
+		if [ "$include_secrets" = "1" ] && [ "${DEVVM_BACKUP_ALLOW_PLAINTEXT_SECRETS:-0}" != "1" ]; then
+			devvm_die "refusing plaintext backup with secrets; use --encrypt, --no-secrets, or set DEVVM_BACKUP_ALLOW_PLAINTEXT_SECRETS=1"
+		fi
 		printf '0\n'
 		;;
 	*) devvm_die "DEVVM_BACKUP_ENCRYPT must be auto, 1, or 0" ;;

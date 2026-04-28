@@ -25,6 +25,10 @@ export DEVVM_CORE
 source "$DEVVM_CORE/lib/util.sh"
 # shellcheck source=../lib/config.sh
 source "$DEVVM_CORE/lib/config.sh"
+# shellcheck source=../lib/update.sh
+source "$DEVVM_CORE/lib/update.sh"
+# shellcheck source=../lib/security.sh
+source "$DEVVM_CORE/lib/security.sh"
 # shellcheck source=../lib/lima.sh
 source "$DEVVM_CORE/lib/lima.sh"
 # shellcheck source=../lib/provision.sh
@@ -60,11 +64,12 @@ Usage:
   devvm restore <name> [backup-file]
   devvm key <name>
   devvm status
-  devvm doctor
+  devvm doctor [--security]
   devvm ai create|update|enter|key|endpoint|status|logs
   devvm gpg create-subkey|install|list|export-public
   devvm completion bash|zsh
-  devvm self-update
+  devvm verify-install
+  devvm self-update [--version v0.1.0|--rollback]
 
 Shortcut:
   devvm <name>   enters an existing VM
@@ -77,6 +82,8 @@ devvm_main() {
 	if [ "$#" -gt 0 ]; then
 		shift
 	fi
+
+	devvm_update_check_notice "$cmd" || true
 
 	case "$cmd" in
 	help | -h | --help)
@@ -144,6 +151,9 @@ devvm_main() {
 		;;
 	completion)
 		devvm_completion "$@"
+		;;
+	verify-install)
+		devvm_verify_install "$@"
 		;;
 	self-update)
 		devvm_self_update "$@"
